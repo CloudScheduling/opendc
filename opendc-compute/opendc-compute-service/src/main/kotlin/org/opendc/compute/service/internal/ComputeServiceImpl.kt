@@ -51,7 +51,7 @@ import kotlin.math.max
  * @param scheduler The scheduler implementation to use.
  * @param schedulingQuantum The interval between scheduling cycles.
  */
-internal class ComputeServiceImpl(
+public open class ComputeServiceImpl(
     private val context: CoroutineContext,
     private val clock: Clock,
     meterProvider: MeterProvider,
@@ -91,7 +91,7 @@ internal class ComputeServiceImpl(
     /**
      * The servers that should be launched by the service.
      */
-    private val queue: Deque<SchedulingRequest> = ArrayDeque()
+    private val serversToLaunch: Deque<SchedulingRequest> = ArrayDeque()
 
     /**
      * The active servers in the system.
@@ -335,7 +335,7 @@ internal class ComputeServiceImpl(
         val request = SchedulingRequest(server, now)
 
         server.lastProvisioningTimestamp = now
-        queue.add(request)
+        serversToLaunch.add(request)
         _serversPending.add(1)
         requestSchedulingCycle()
         return request
@@ -358,7 +358,7 @@ internal class ComputeServiceImpl(
      */
     private fun requestSchedulingCycle() {
         // Bail out in case we have already requested a new cycle or the queue is empty.
-        if (timerScheduler.isTimerActive(Unit) || queue.isEmpty()) {
+        if (timerScheduler.isTimerActive(Unit) || serversToLaunch.isEmpty()) {
             return
         }
 
@@ -377,13 +377,13 @@ internal class ComputeServiceImpl(
     /**
      * Run a single scheduling iteration.
      */
-    private fun doSchedule() {
+    protected open fun doSchedule() {
         val now = clock.millis()
-        while (queue.isNotEmpty()) {
-            val request = queue.peek()
+        while (serversToLaunch.isNotEmpty()) {
+            val request = serversToLaunch.peek()
 
             if (request.isCancelled) {
-                queue.poll()
+                serversToLaunch.poll()
                 _serversPending.add(-1)
                 continue
             }
@@ -395,7 +395,7 @@ internal class ComputeServiceImpl(
 
                 if (server.flavor.memorySize > maxMemory || server.flavor.cpuCount > maxCores) {
                     // Remove the incoming image
-                    queue.poll()
+                    serversToLaunch.poll()
                     _serversPending.add(-1)
                     _schedulingAttemptsFailure.add(1)
 
@@ -411,7 +411,7 @@ internal class ComputeServiceImpl(
             val host = hv.host
 
             // Remove request from queue
-            queue.poll()
+            serversToLaunch.poll()
             _serversPending.add(-1)
             _schedulingLatency.record(now - request.submitTime, server.attributes)
 
