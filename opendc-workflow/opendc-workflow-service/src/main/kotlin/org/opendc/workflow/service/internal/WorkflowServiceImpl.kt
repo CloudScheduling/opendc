@@ -331,7 +331,15 @@ public class WorkflowServiceImpl(
             }
 
             taskIterator.remove()
-            taskQueue.add(taskInstance)
+            eligibleTasks.add(taskInstance)
+        }
+
+        if (taskOrderPolicy is HolisticTaskOrderPolicy) {
+            this.taskQueue = taskOrderPolicy.orderTasks(eligibleTasks)
+        } else {
+            this.taskQueue = PriorityQueue(
+                1000,
+                taskOrderPolicy(this).thenBy { it.task.uid })
         }
 
         // T3 Per task
