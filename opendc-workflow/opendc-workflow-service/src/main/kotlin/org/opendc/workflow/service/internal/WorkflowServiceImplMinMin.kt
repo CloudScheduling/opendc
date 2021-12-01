@@ -45,7 +45,7 @@ import kotlin.coroutines.resume
  * A [WorkflowService] that distributes work through a multi-stage process based on the Reference Architecture for
  * Datacenter Scheduling.
  */
-public class WorkflowServiceImpl(
+public class WorkflowServiceImplMinMin(
     context: CoroutineContext,
     private val clock: Clock,
     meterProvider: MeterProvider,
@@ -370,7 +370,7 @@ public class WorkflowServiceImpl(
                 instance.server = server
                 taskByServer[server] = instance
 
-                server.watch(this@WorkflowServiceImpl)
+                server.watch(this@WorkflowServiceImplMinMin)
                 server.start()
             }
 

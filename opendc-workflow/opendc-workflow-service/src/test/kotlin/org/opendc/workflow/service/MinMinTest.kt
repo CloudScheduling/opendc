@@ -8,6 +8,7 @@ import org.opendc.compute.service.scheduler.filters.ComputeFilter
 import org.opendc.compute.service.scheduler.filters.RamFilter
 import org.opendc.compute.service.scheduler.filters.VCpuFilter
 import org.opendc.compute.service.scheduler.weights.VCpuWeigher
+import org.opendc.compute.simulator.SimHost
 import org.opendc.compute.workload.ComputeServiceHelper
 import org.opendc.compute.workload.topology.HostSpec
 import org.opendc.simulator.compute.kernel.SimSpaceSharedHypervisorProvider
@@ -44,10 +45,17 @@ class MinMinTest {
         val workflow = createWorkflow()
         val host = createHostSpec(1)
         val schedulerSpec = createSchedulerSpec()
-        val computeService = createComputeService(coroutineContext, clock)
+        val computeHelper = createComputeService(coroutineContext, clock)
+
+        val hosts = mutableSetOf<SimHost>()
+        repeat(2) {
+            val spec = createHostSpec(1)
+            val host = computeHelper.registerHost(spec)
+            hosts.add(host)
+        }
     }
 
-    private fun createComputeService(context : CoroutineContext, clock : Clock): Any {
+    private fun createComputeService(context : CoroutineContext, clock : Clock): ComputeServiceHelper {
         val computeScheduler = FilterScheduler(
             filters = listOf(ComputeFilter(), VCpuFilter(1.0), RamFilter(1.0)),
             weighers = listOf(VCpuWeigher(1.0, multiplier = 1.0))
