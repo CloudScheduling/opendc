@@ -1,7 +1,10 @@
 package org.opendc.workflow.service
 
 import kotlinx.coroutines.CoroutineScope
+import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertAll
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.opendc.compute.service.driver.Host
 import org.opendc.compute.service.scheduler.FilterScheduler
 import org.opendc.compute.service.scheduler.filters.ComputeFilter
@@ -27,6 +30,7 @@ import org.opendc.workflow.service.internal.WorkflowSchedulerListener
 import org.opendc.workflow.service.internal.WorkflowServiceImpl
 import org.opendc.workflow.service.scheduler.job.NullJobAdmissionPolicy
 import org.opendc.workflow.service.scheduler.job.SubmissionTimeJobOrderPolicy
+import org.opendc.workflow.service.scheduler.task.MinMinPolicy
 import org.opendc.workflow.service.scheduler.task.NullTaskEligibilityPolicy
 import org.opendc.workflow.service.scheduler.task.SubmissionTimeTaskOrderPolicy
 import org.opendc.workflow.service.scheduler.task.TaskOrderPolicy
@@ -37,22 +41,75 @@ import java.util.*
 import kotlin.Comparator
 import kotlin.collections.HashMap
 import kotlin.collections.HashSet
+import kotlin.coroutines.Continuation
 import kotlin.coroutines.CoroutineContext
 
 class MinMinTest {
     @Test
-    fun testMinMin() = runBlockingSimulation {
-        val workflow = createWorkflow()
-        val host = createHostSpec(1)
-        val schedulerSpec = createSchedulerSpec()
-        val computeHelper = createComputeService(coroutineContext, clock)
+    fun whenThereIsSingleHost_TasksAreOrderedByExecutionTime() = runBlockingSimulation {
+        val tasks = hashSetOf(
+            Task(UUID(0L, 1L), "Task1", HashSet(),
+                mutableMapOf("cpu-cycles" to 1000, "required-cpus" to 1)),
+            Task(UUID(0L, 2L), "Task2", HashSet(),
+                mutableMapOf("cpu-cycles" to 3000, "required-cpus" to 1)),
+            Task(UUID(0L, 3L), "Task3", HashSet(),
+                mutableMapOf("cpu-cycles" to 2000, "required-cpus" to 1)))
 
-        val hosts = mutableSetOf<SimHost>()
+        val hostSpecs = mutableSetOf<HostSpec>()
+        val spec = createHostSpec(1)
+        // val host = computeHelper.registerHost(spec)
+        hostSpecs.add(spec)
+
+        val minmin = MinMinPolicy(hostSpecs)
+
+        val cont = Continuation<Unit>(coroutineContext) { ; }
+        val job = JobState(Job(UUID.randomUUID(), "onlyJob", tasks), 0, cont)
+        val input = tasks.map({ TaskState(job, it) }).toHashSet()
+        val orderedTasks = minmin.orderTasks(input)
+
+        Assertions.assertEquals("Task1", orderedTasks.poll().task.name)
+        Assertions.assertEquals("Task3", orderedTasks.poll().task.name)
+        Assertions.assertEquals("Task2", orderedTasks.poll().task.name)
+    }
+
+    @Test
+    fun whenThereAreTwoHostsForTwoTasks_EveryTaskIsAssignedToOneOfTheHosts() = runBlockingSimulation {
+        val tasks = hashSetOf(
+            Task(UUID(0L, 1L), "Task1", HashSet(),
+                mutableMapOf("cpu-cycles" to 1000, "required-cpus" to 1)),
+            Task(UUID(0L, 2L), "Task2", HashSet(),
+                mutableMapOf("cpu-cycles" to 1000, "required-cpus" to 1)))
+
+        val hostSpecs = mutableSetOf<HostSpec>()
         repeat(2) {
-            val spec = createHostSpec(1)
-            val host = computeHelper.registerHost(spec)
-            hosts.add(host)
+            val spec = createHostSpec(it)
+            // val host = computeHelper.registerHost(spec)
+            hostSpecs.add(spec)
         }
+
+        val minmin = MinMinPolicy(hostSpecs)
+
+        val cont = Continuation<Unit>(coroutineContext) { ; }
+        val job = JobState(Job(UUID.randomUUID(), "onlyJob", tasks), 0, cont)
+        val input = tasks.map({ TaskState(job, it) }).toHashSet()
+        val orderedTasks = minmin.orderTasks(input)
+
+        Assertions.assertEquals("host-0", orderedTasks.poll().task.metadata["assigned-host"])
+        Assertions.assertEquals("host-1", orderedTasks.poll().task.metadata["assigned-host"])
+    }
+
+    private fun createWorkflow() : Job {
+        val tasks = HashSet<Task>()
+        val workflow = Job(UUID.randomUUID(), "<unnamed>", tasks, HashMap())
+
+        for (id in 0..9) {
+            val task = Task(UUID(0L, id.toLong()), "task$id", HashSet(), mutableMapOf(
+                "cpu-cycles" to 5000 * (id + 1),
+                "required-cpus" to 1
+            ))
+            tasks.add(task)
+        }
+        return workflow
     }
 
     private fun createComputeService(context : CoroutineContext, clock : Clock): ComputeServiceHelper {
@@ -63,23 +120,20 @@ class MinMinTest {
         return ComputeServiceHelper(context, clock, computeScheduler, schedulingQuantum = Duration.ofSeconds(1))
     }
 
-    private fun createWorkflow() : Job {
-        val tasks = HashSet<Task>()
-        val workflow = Job(UUID.randomUUID(), "<unnamed>", tasks, HashMap())
-
-        for (id in 0..9) {
-            val task = Task(UUID(0L, id.toLong()), "task$id", HashSet(), mapOf(
-                "cpu-cycles" to 5000 * (id + 1)
-            ))
-            tasks.add(task)
-        }
-        return workflow
+    private fun createSchedulerSpec(): WorkflowSchedulerSpec {
+        return WorkflowSchedulerSpec(
+            schedulingQuantum = Duration.ofMillis(100),
+            jobAdmissionPolicy = NullJobAdmissionPolicy,
+            jobOrderPolicy = SubmissionTimeJobOrderPolicy(),
+            taskEligibilityPolicy = NullTaskEligibilityPolicy,
+            taskOrderPolicy = SubmissionTimeTaskOrderPolicy(),
+        )
     }
 
     private fun createHostSpec(uid: Int): HostSpec {
         // Machine model based on: https://www.spec.org/power_ssj2008/results/res2020q1/power_ssj2008-20191125-01012.html
         val node = ProcessingNode("AMD", "am64", "EPYC 7742", 32)
-        val cpus = List(node.coreCount) { ProcessingUnit(node, it, 3400.0) }
+        val cpus = listOf(ProcessingUnit(node, 1, 3400.0))
         val memory = List(8) { MemoryUnit("Samsung", "Unknown", 2933.0, 16_000) }
 
         val machineModel = MachineModel(cpus, memory)
@@ -91,16 +145,6 @@ class MinMinTest {
             machineModel,
             SimplePowerDriver(ConstantPowerModel(0.0)),
             SimSpaceSharedHypervisorProvider()
-        )
-    }
-
-    private fun createSchedulerSpec(): WorkflowSchedulerSpec {
-        return WorkflowSchedulerSpec(
-            schedulingQuantum = Duration.ofMillis(100),
-            jobAdmissionPolicy = NullJobAdmissionPolicy,
-            jobOrderPolicy = SubmissionTimeJobOrderPolicy(),
-            taskEligibilityPolicy = NullTaskEligibilityPolicy,
-            taskOrderPolicy = SubmissionTimeTaskOrderPolicy(),
         )
     }
 }
