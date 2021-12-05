@@ -23,6 +23,9 @@
 package org.opendc.workflow.service
 
 import io.opentelemetry.sdk.metrics.export.MetricProducer
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -40,9 +43,15 @@ import org.opendc.simulator.compute.model.MemoryUnit
 import org.opendc.simulator.compute.model.ProcessingNode
 import org.opendc.simulator.compute.model.ProcessingUnit
 import org.opendc.simulator.compute.power.ConstantPowerModel
+import org.opendc.simulator.compute.power.LinearPowerModel
 import org.opendc.simulator.compute.power.SimplePowerDriver
 import org.opendc.simulator.core.runBlockingSimulation
+import org.opendc.telemetry.compute.ComputeMetricExporter
+import org.opendc.telemetry.compute.table.HostTableReader
+import org.opendc.telemetry.compute.table.ServerTableReader
+import org.opendc.telemetry.sdk.metrics.export.CoroutineMetricReader
 import org.opendc.trace.Trace
+import org.opendc.workflow.service.internal.WorkflowServiceImpl
 import org.opendc.workflow.service.scheduler.job.NullJobAdmissionPolicy
 import org.opendc.workflow.service.scheduler.job.SubmissionTimeJobOrderPolicy
 import org.opendc.workflow.service.scheduler.task.NullTaskEligibilityPolicy
@@ -53,6 +62,7 @@ import org.opendc.workflow.workload.toJobs
 import java.nio.file.Paths
 import java.time.Duration
 import java.util.*
+import java.io.PrintWriter
 
 /**
  * Integration test suite for the [WorkflowService].
@@ -72,6 +82,9 @@ internal class WorkflowServiceTest {
         )
         val computeHelper = ComputeServiceHelper(coroutineContext, clock, computeScheduler, schedulingQuantum = Duration.ofSeconds(1))
 
+        val metricsFile = PrintWriter("metrics.csv")
+        metricsFile.appendLine("cpuUsage,cpuIdleTime,energyUsage")
+
         repeat(HOST_COUNT) { computeHelper.registerHost(createHostSpec(it)) }
 
         // Configure the WorkflowService that is responsible for scheduling the workflow tasks onto machines
@@ -84,16 +97,46 @@ internal class WorkflowServiceTest {
         )
         val workflowHelper = WorkflowServiceHelper(coroutineContext, clock, computeHelper.service.newClient(), workflowScheduler)
 
+        val metricReader = CoroutineMetricReader(this, computeHelper.producers, object : ComputeMetricExporter(){
+            var energyUsage = 0.0
+            var cpuUsage = 0.0
+            var cpuIdleTime = 0L
+            //Makespan
+
+            override fun record(reader: HostTableReader){
+                cpuUsage = reader.cpuUsage
+                cpuIdleTime = reader.cpuIdleTime
+                energyUsage = reader.powerUsage
+                metricsFile.appendLine(" $cpuUsage,$cpuIdleTime,$energyUsage")
+            }
+
+//            override fun record(reader: ServerTableReader){
+//                println()
+//            }
+
+        }, exportInterval = Duration.ofMinutes(5))
+
         try {
-            val trace = Trace.open(
+//            val trace = Trace.open(
+//                Paths.get(checkNotNull(WorkflowServiceTest::class.java.getResource("/askalon-new_ee10_parquet")).toURI()),
+//                format = "wtf"
+                val trace = Trace.open(
                 Paths.get(checkNotNull(WorkflowServiceTest::class.java.getResource("/trace.gwf")).toURI()),
-                format = "gwf"
+            format = "gwf"
             )
 
-            workflowHelper.replay(trace.toJobs())
+            coroutineScope {
+                launch {workflowHelper.replay(trace.toJobs()) }
+
+//                delay(10_000)
+                val impl = (workflowHelper.service as WorkflowServiceImpl)
+                println(impl.jobQueue)
+            }
         } finally {
             workflowHelper.close()
             computeHelper.close()
+            metricReader.close()
+            metricsFile.close()
         }
 
         val metrics = collectMetrics(workflowHelper.metricProducer)
@@ -124,7 +167,7 @@ internal class WorkflowServiceTest {
             "host-$uid",
             emptyMap(),
             machineModel,
-            SimplePowerDriver(ConstantPowerModel(0.0)),
+            SimplePowerDriver(LinearPowerModel(250.0, 50.0)),
             SimSpaceSharedHypervisorProvider()
         )
     }
