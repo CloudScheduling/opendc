@@ -89,28 +89,14 @@ public class WorkflowServiceHelper(
      * finished.
      */
     public suspend fun replay(jobs: List<Job>) {
-        // Sort jobs by their arrival time
-        val orderedJobs = jobs.sortedBy { it.metadata.getOrDefault("WORKFLOW_SUBMIT_TIME", Long.MAX_VALUE) as Long }
+        // Sort jobs by their execution time
+        val orderedJobs = jobs.sortedBy { it.metadata.getOrDefault("WORKFLOW_EXECUTION_TIME", Long.MAX_VALUE) as Long }
         if (orderedJobs.isEmpty()) {
             return
         }
-
-        // Wait until the trace is started
-        val startTime = orderedJobs[0].metadata.getOrDefault("WORKFLOW_SUBMIT_TIME", Long.MAX_VALUE) as Long
-        var offset = 0L
-
-        if (startTime != Long.MAX_VALUE) {
-            offset = startTime - clock.millis()
-            delay(offset.coerceAtLeast(0))
-        }
-
+        
         coroutineScope {
             for (job in orderedJobs) {
-                val submitTime = job.metadata.getOrDefault("WORKFLOW_SUBMIT_TIME", Long.MAX_VALUE) as Long
-                if (submitTime != Long.MAX_VALUE) {
-                    delay(((submitTime - offset) - clock.millis()).coerceAtLeast(0))
-                }
-
                 launch { service.invoke(job) }
             }
         }
