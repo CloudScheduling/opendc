@@ -22,10 +22,17 @@
 
 package org.opendc.compute.api
 
+import org.opendc.workflow.service.internal.TaskState
+
 /**
  * A stateful object representing a server instance that is running on some physical or virtual machine.
  */
 public interface Server : Resource {
+    /**
+     * Task that is running on the server.
+     */
+    public val taskState : TaskState
+
     /**
      * The flavor of the server.
      */

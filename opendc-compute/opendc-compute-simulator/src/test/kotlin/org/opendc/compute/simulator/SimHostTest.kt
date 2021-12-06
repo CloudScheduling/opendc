@@ -50,6 +50,8 @@ import org.opendc.telemetry.compute.table.HostTableReader
 import org.opendc.telemetry.compute.table.ServerTableReader
 import org.opendc.telemetry.sdk.metrics.export.CoroutineMetricReader
 import org.opendc.telemetry.sdk.toOtelClock
+import org.opendc.workflow.service.internal.JobState
+import org.opendc.workflow.service.internal.TaskState
 import java.time.Duration
 import java.util.*
 import kotlin.coroutines.resume
@@ -148,7 +150,6 @@ internal class SimHostTest {
             },
             exportInterval = Duration.ofSeconds(duration)
         )
-
         coroutineScope {
             launch { virtDriver.spawn(MockServer(UUID.randomUUID(), "a", flavor, vmImageA)) }
             launch { virtDriver.spawn(MockServer(UUID.randomUUID(), "b", flavor, vmImageB)) }
@@ -322,7 +323,8 @@ internal class SimHostTest {
         override val uid: UUID,
         override val name: String,
         override val flavor: Flavor,
-        override val image: Image
+        override val image: Image,
+        override val taskState: TaskState
     ) : Server {
         override val labels: Map<String, String> = emptyMap()
 

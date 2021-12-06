@@ -28,6 +28,7 @@ import kotlinx.coroutines.*
 import org.opendc.compute.api.*
 import org.opendc.utils.TimerScheduler
 import org.opendc.workflow.api.Job
+import org.opendc.workflow.api.Task
 import org.opendc.workflow.api.WORKFLOW_TASK_CORES
 import org.opendc.workflow.service.*
 import org.opendc.workflow.service.scheduler.job.JobAdmissionPolicy
@@ -39,6 +40,7 @@ import java.time.Duration
 import java.util.*
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.resume
+import kotlin.math.max
 
 /**
  * A [WorkflowService] that distributes work through a multi-stage process based on the Reference Architecture for
@@ -301,6 +303,7 @@ public class WorkflowServiceImpl(
 
         // J4 Per job
         while (true) {
+            // TODO: here the job must be extended using an extend policy
             val jobInstance = jobQueue.poll() ?: break
 
             // Edge-case: job has no tasks
@@ -308,6 +311,10 @@ public class WorkflowServiceImpl(
                 finishJob(jobInstance)
             }
 
+            // calculate LOP
+            jobInstance.lop = calculateLop(jobInstance)
+            // assign to filter list
+            //compute
             // Add job roots to the scheduling queue
             for (task in jobInstance.tasks) {
                 if (task.state != TaskStatus.READY) {
@@ -351,7 +358,8 @@ public class WorkflowServiceImpl(
                     image,
                     flavor,
                     start = false,
-                    meta = instance.task.metadata
+                    meta = instance.task.metadata,
+                    taskState = instance
                 )
 
                 instance.state = TaskStatus.ACTIVE
@@ -366,6 +374,30 @@ public class WorkflowServiceImpl(
             taskQueue.poll()
             rootListener.taskAssigned(instance)
         }
+    }
+
+    private fun calculateLop(jobInstance: JobState): Int {
+        var t = jobInstance.job.tasks
+        // identify the start task -> task that comes first (get task with min submittedAt)
+        val startTask = t.elementAt(0) // todo -> identify
+        // todo: if there is more than one starting task through error or create virtual stuff
+        // do breitensuche: for each path -> give token
+        var nextLevel = LinkedList<Task>() // todo: faster implementation
+        nextLevel.add(startTask)
+
+        var lop = 0
+        while (!nextLevel.isEmpty()) {
+            var currLevel = nextLevel
+            nextLevel = LinkedList<Task>()
+            var localCounter = 0
+            while (!currLevel.isEmpty()) {
+                val currElem = currLevel.pop()
+                nextLevel.addAll(currElem.dependencies)
+                localCounter++ // todo: do I need to count the number of actual CPUs?
+            }
+            lop = max(localCounter, lop)
+        }
+        return lop
     }
 
     override fun onStateChanged(server: Server, newState: ServerState) {

@@ -32,6 +32,8 @@ public class JobState(public val job: Job, public val submittedAt: Long, interna
     public val isFinished: Boolean
         get() = tasks.isEmpty()
 
+    public var lop : Int = 0
+
     internal val tasks: MutableSet<TaskState> = mutableSetOf()
 
     override fun equals(other: Any?): Boolean = other is JobState && other.job == job

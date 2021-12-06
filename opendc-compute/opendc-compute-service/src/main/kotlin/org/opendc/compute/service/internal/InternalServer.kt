@@ -28,6 +28,7 @@ import io.opentelemetry.semconv.resource.attributes.ResourceAttributes
 import mu.KotlinLogging
 import org.opendc.compute.api.*
 import org.opendc.compute.service.driver.Host
+import org.opendc.workflow.service.internal.TaskState
 import java.util.UUID
 
 /**
@@ -40,7 +41,8 @@ internal class InternalServer(
     override val flavor: InternalFlavor,
     override val image: InternalImage,
     override val labels: MutableMap<String, String>,
-    override val meta: MutableMap<String, Any>
+    override val meta: MutableMap<String, Any>,
+    override val taskState: TaskState
 ) : Server {
     /**
      * The logger instance of this server.

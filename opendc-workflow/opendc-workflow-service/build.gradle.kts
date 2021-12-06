@@ -42,6 +42,7 @@ dependencies {
     testImplementation(projects.opendcSimulator.opendcSimulatorCore)
     testImplementation(projects.opendcTrace.opendcTraceApi)
     testImplementation(projects.opendcTelemetry.opendcTelemetrySdk)
-    testRuntimeOnly(projects.opendcTrace.opendcTraceGwf)
+    //testRuntimeOnly(projects.opendcTrace.opendcTraceGwf)
     testRuntimeOnly(libs.log4j.slf4j)
+    testRuntimeOnly(projects.opendcTrace.opendcTraceWtf)
 }
