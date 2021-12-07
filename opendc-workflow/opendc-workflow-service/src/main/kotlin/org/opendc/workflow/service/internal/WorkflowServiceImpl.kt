@@ -79,12 +79,12 @@ public class WorkflowServiceImpl(
     /**
      * The job queue.
      */
-    private val jobQueue: Queue<JobState>
+    internal val jobQueue: Queue<JobState>
 
     /**
      * The task queue.
      */
-    private var taskQueue: Queue<TaskState>
+    internal var taskQueue: Queue<TaskState>
 
     /**
      * The active jobs in the system.
@@ -259,7 +259,7 @@ public class WorkflowServiceImpl(
      */
     private fun requestSchedulingCycle() {
         // Bail out in case we have already requested a new cycle or the queue is empty.
-        if (timerScheduler.isTimerActive(Unit) || incomingJobs.isEmpty()) {
+        if (timerScheduler.isTimerActive(Unit)) {
             return
         }
 
