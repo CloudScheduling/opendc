@@ -37,7 +37,7 @@ import kotlin.collections.HashSet
 public data class Task(
     val uid: UUID,
     val name: String,
-    val dependencies: Set<Task>,
+    var dependencies: Set<Task>,
     val metadata: Map<String, Any> = emptyMap()
 ) {
     override fun equals(other: Any?): Boolean = other is Task && uid == other.uid
@@ -54,7 +54,7 @@ public data class Task(
     /**
      * Set of all tasks that are not blocked by this task anymore
      */
-    val enables: HashSet<Task> = HashSet()
+    var enables: HashSet<Task> = HashSet()
 
     /**
      * Token for LOP

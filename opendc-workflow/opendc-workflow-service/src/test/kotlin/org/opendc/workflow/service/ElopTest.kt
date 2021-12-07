@@ -48,7 +48,7 @@ import org.opendc.trace.Trace
 import org.opendc.workflow.api.Task
 import org.opendc.workflow.service.internal.JobState
 import org.opendc.workflow.api.Job
-import org.opendc.workflow.service.scheduler.job.NullJobAdmissionPolicy
+import org.opendc.workflow.service.scheduler.job.ElopAdmissionPolicy
 import org.opendc.workflow.service.scheduler.job.SubmissionTimeJobOrderPolicy
 import org.opendc.workflow.service.scheduler.task.NullTaskEligibilityPolicy
 import org.opendc.workflow.service.scheduler.task.SubmissionTimeTaskOrderPolicy
@@ -81,17 +81,6 @@ internal class ElopTest {
         assertEquals(job.calculateLop(), 2)
     }
 
-    @Test
-    fun testWithRealTrace() {
-        val trace = Trace.open(
-            Paths.get(checkNotNull(ElopTest::class.java.getResource("/askalon-new_ee10_parquet")).toURI()),
-            format = "wtf"
-        )
-
-        val job = trace.toJobs()[0]
-        job.calculateLop()
-    }
-
     data class HelperWrapper(val workflowHelper : WorkflowServiceHelper, val computeHelper : ComputeServiceHelper)
 
     @Test
@@ -122,7 +111,7 @@ internal class ElopTest {
                 energyUsage = reader.powerUsage
                 metricsFile.appendLine(" $cpuUsage,$cpuIdleTime,$energyUsage")
             }
-        }, exportInterval = Duration.ofMinutes(5))
+        }, exportInterval = Duration.ofSeconds(1))
 
         return Pair(metricReader, metricsFile)
     }
@@ -130,11 +119,13 @@ internal class ElopTest {
     private suspend fun runTrace(workflowHelper : WorkflowServiceHelper, computeHelper : ComputeServiceHelper, metricReader: CoroutineMetricReader, metricsFile : PrintWriter) {
         try {
             val trace = Trace.open(
-                Paths.get(checkNotNull(ElopTest::class.java.getResource("/askalon-new_ee17_parquet")).toURI()),
+                Paths.get(checkNotNull(ElopTest::class.java.getResource("/askalon-new_ee10_parquet")).toURI()),
                 format = "wtf"
+                //Paths.get(checkNotNull(ElopTest::class.java.getResource("/askalon_ee2_parquet")).toURI()),
+                //format = "wtf"
             )
-
-            workflowHelper.replay(trace.toJobs())
+            val jobs = trace.toJobs()
+            workflowHelper.replay(jobs)
         } finally {
             workflowHelper.close()
             computeHelper.close()
@@ -166,7 +157,7 @@ internal class ElopTest {
 
         val workflowScheduler = WorkflowSchedulerSpec(
             schedulingQuantum = Duration.ofMillis(100),
-            jobAdmissionPolicy = NullJobAdmissionPolicy,
+            jobAdmissionPolicy = ElopAdmissionPolicy(), // needed to avoid that jobs/tasks get lost that don't fit
             jobOrderPolicy = SubmissionTimeJobOrderPolicy(), // thats fine, we need it for the right order in the queue
             taskEligibilityPolicy = NullTaskEligibilityPolicy,
             taskOrderPolicy = SubmissionTimeTaskOrderPolicy(), // thats fine, we need it for the right order in the queue
@@ -193,7 +184,7 @@ internal class ElopTest {
     private fun createHostSpec(uid: Int): HostSpec {
         // Machine model based on: https://www.spec.org/power_ssj2008/results/res2020q1/power_ssj2008-20191125-01012.html
         val node = ProcessingNode("AMD", "am64", "EPYC 7742", 32)
-        val cpus = List(node.coreCount) { ProcessingUnit(node, it, 3400.0) }
+        val cpus = List(node.coreCount) { ProcessingUnit(node, it, 400.0) } // was: 3400
         val memory =
             List(8) { MemoryUnit("Samsung", "Unknown", 2933.0, 16_000) }
 

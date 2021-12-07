@@ -25,6 +25,7 @@ package org.opendc.workflow.service.internal
 import org.opendc.workflow.api.Job
 import org.opendc.workflow.api.Task
 import java.util.*
+import kotlin.collections.HashMap
 import kotlin.coroutines.Continuation
 import kotlin.math.max
 
@@ -48,4 +49,6 @@ public class JobState(public val job: Job, public val submittedAt: Long, interna
         this.lop = this.job.calculateLop()
         return lop
     }
+
+    public val metadata : HashMap<String, Any> = HashMap()
 }

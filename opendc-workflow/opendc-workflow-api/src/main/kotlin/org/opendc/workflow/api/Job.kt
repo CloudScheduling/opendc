@@ -56,10 +56,24 @@ public data class Job(
 
         // identify the start task -> task that comes first (get task with min submittedAt)
         val startTasks = this.tasks.filter { it.dependencies.isEmpty() }
-        if (startTasks.size != 1) {
-            throw Exception("More than one or no start task found")
+        if (startTasks.isEmpty()) {
+            throw Exception("No start task found")
         }
-        val startTask = startTasks[0]
+        var startTask : Task?
+        var proxyIntroduced = false
+        var proxyStart : Task? = null
+        if (startTasks.size > 1) {
+            proxyIntroduced = true
+            proxyStart = Task(UUID.randomUUID(), "Proxy-Start", HashSet(), hashMapOf("workflow:task:cores" to 0))
+            proxyStart.enables = startTasks.toHashSet()
+            for (task in startTasks) {
+                task.dependencies = task.dependencies.plus(proxyStart)
+            }
+            startTask = proxyStart
+        }
+        else {
+            startTask = startTasks[0]
+        }
         startTask.token = true
         // do breitensuche: for each path -> give token
         var nextLevel = HashSet<Task>()
@@ -84,6 +98,14 @@ public data class Job(
             nextLevel.removeAll(elemsToRemove)
             lop = max(localCounter, lop) // TODO: or do I need to count the CPU cores?
         }
+
+        // if proxy introduced, remove it
+        if (proxyIntroduced && proxyStart != null) {
+            for (task in startTasks) {
+                task.dependencies = task.dependencies.minus(proxyStart)
+            }
+        }
+
         return lop
     }
 }

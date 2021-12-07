@@ -196,6 +196,37 @@ public class WorkflowServiceImpl(
     private val taskEligibilityPolicy: TaskEligibilityPolicy.Logic
     private lateinit var image: Image
 
+    /**
+     * Keeps track of which hosts are available (in total).
+     * Stores pairs of unique identifiers and available CPU cores.
+     */
+    override var hosts: MutableSet<Pair<UUID, Int>> = mutableSetOf()
+
+    /**
+     * Stores which jobs are allowed to run on which hosts.
+     */
+    override var jobHostMapping: HashMap<JobState, Set<UUID>> = HashMap()
+
+    /**
+     * Stores which hosts are assigned to tasks
+     */
+    private var assignedHosts : MutableSet<UUID> = mutableSetOf()
+
+    /**
+     * Checks if there are sufficient hosts left:
+     * there have to be hosts left and
+     */
+    private fun sufficientHostsLeft(jobState : JobState) : Boolean {
+        val hostsLeft = hosts.size - assignedHosts.size > 0
+        if (hostsLeft) {
+            // does it fit?
+            val lop = jobState.calculateLop()
+            val availableCpus = hosts.filter { it.first !in assignedHosts }.sumOf { it.second }
+            return lop <= availableCpus
+        }
+        return false
+    }
+
     init {
         this.jobAdmissionPolicy = jobAdmissionPolicy(this)
         this.jobQueue = PriorityQueue(100, jobOrderPolicy(this).thenBy { it.job.uid })
@@ -233,9 +264,6 @@ public class WorkflowServiceImpl(
 
         requestSchedulingCycle()
     }
-
-    override var hosts: MutableSet<Pair<UUID, Int>> = mutableSetOf()
-    override var jobHostMapping: HashMap<JobState, Set<UUID>> = HashMap()
 
     override fun close() {
         scope.cancel()
@@ -288,6 +316,7 @@ public class WorkflowServiceImpl(
         val iterator = incomingJobs.iterator()
         while (iterator.hasNext()) {
             val jobInstance = iterator.next()
+            jobInstance.metadata["sufficientHostsLeft"] = sufficientHostsLeft(jobInstance)
             val advice = jobAdmissionPolicy(jobInstance)
             if (advice.stop) {
                 break
@@ -317,24 +346,29 @@ public class WorkflowServiceImpl(
             jobInstance.calculateLop()
             // assign enough resources to fit -> sort by no of cpu cores
             // select fitting as long as there are cores missing
-            val servers = hosts.toList().sortedBy { it.second } // second = cpuCount
+            val hostsSet = hosts.toMutableSet() // second = cpuCount TODO: remove assignedHosts.add(host)
+            hostsSet.removeIf { x -> x.first in assignedHosts }
+            val hostsListSorted = hostsSet.toList().sortedBy { it.second }
             var lopLeft = jobInstance.lop
             val choices = HashSet<UUID>()
+            if (hostsListSorted.isEmpty()) throw Exception("No hosts available")
             // TODO: could be optimized by binary search -> n^2 to n log n
             while (lopLeft > 0) {
-                for ((i, host) in servers.withIndex()) {
+                for ((i, host) in hostsListSorted.withIndex()) {
                     val cpuCount = host.second
                     val uuid = host.first
                     val firstMatch = lopLeft >= cpuCount
-                    val lastHost = i == servers.size - 1 // cannot fit a single instance -> fill up with multiple machines
+                    val lastHost = i == hostsSet.size - 1 // cannot fit a single instance -> fill up with multiple machines
                     if (firstMatch || lastHost) {
                         choices.add(uuid)
                         lopLeft -= cpuCount
                         choices.add(uuid)
-                        servers.drop(i)
+                        hostsListSorted.drop(i)
+                        assignedHosts.add(host.first)
                     }
                 }
             }
+            print("Chose the following: $choices")
             jobHostMapping[jobInstance] = choices
 
             //compute
@@ -410,7 +444,6 @@ public class WorkflowServiceImpl(
             }
             ServerState.TERMINATED, ServerState.ERROR -> {
                 val task = taskByServer.remove(server) ?: throw IllegalStateException()
-
                 scope.launch {
                     server.delete()
                     server.flavor.delete()
@@ -438,6 +471,8 @@ public class WorkflowServiceImpl(
 
                 if (job.isFinished) {
                     finishJob(job)
+                    val hosts = jobHostMapping.remove(task.job) ?: throw Exception("No host found")
+                    assignedHosts.removeAll(hosts)
                 }
 
                 requestSchedulingCycle()
