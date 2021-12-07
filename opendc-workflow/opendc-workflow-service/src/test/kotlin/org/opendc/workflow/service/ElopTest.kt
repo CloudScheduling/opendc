@@ -103,7 +103,7 @@ internal class ElopTest {
     }
 
     private fun setupMetricReaders(
-        scope : SimulationCoroutineScopelope,
+        scope : SimulationCoroutineScope,
         computeHelper: ComputeServiceHelper,
         fileName: String = "metrics.csv"
     ): Pair<CoroutineMetricReader, PrintWriter> {
