@@ -26,8 +26,6 @@ import io.opentelemetry.api.metrics.Meter
 import io.opentelemetry.api.metrics.MeterProvider
 import kotlinx.coroutines.*
 import org.opendc.compute.api.*
-import org.opendc.compute.service.driver.Host
-import org.opendc.compute.simulator.SimHost
 import org.opendc.utils.TimerScheduler
 import org.opendc.workflow.api.Job
 import org.opendc.workflow.api.WORKFLOW_TASK_CORES
@@ -236,8 +234,8 @@ public class WorkflowServiceImpl(
         requestSchedulingCycle()
     }
 
-    override var hosts: MutableSet<SimHost> = mutableSetOf()
-    override var jobHostMapping: HashMap<JobState, Set<Host>> = HashMap()
+    override var hosts: MutableSet<Pair<UUID, Int>> = mutableSetOf()
+    override var jobHostMapping: HashMap<JobState, Set<UUID>> = HashMap()
 
     override fun close() {
         scope.cancel()
@@ -319,18 +317,20 @@ public class WorkflowServiceImpl(
             jobInstance.calculateLop()
             // assign enough resources to fit -> sort by no of cpu cores
             // select fitting as long as there are cores missing
-            val servers = hosts.toList().sortedBy { it.model.cpuCount }
+            val servers = hosts.toList().sortedBy { it.second } // second = cpuCount
             var lopLeft = jobInstance.lop
-            val choices = HashSet<SimHost>()
+            val choices = HashSet<UUID>()
             // TODO: could be optimized by binary search -> n^2 to n log n
             while (lopLeft > 0) {
                 for ((i, host) in servers.withIndex()) {
-                    val firstMatch = lopLeft >= host.model.cpuCount
+                    val cpuCount = host.second
+                    val uuid = host.first
+                    val firstMatch = lopLeft >= cpuCount
                     val lastHost = i == servers.size - 1 // cannot fit a single instance -> fill up with multiple machines
                     if (firstMatch || lastHost) {
-                        choices.add(host)
-                        lopLeft -= host.model.cpuCount
-                        choices.add(host)
+                        choices.add(uuid)
+                        lopLeft -= cpuCount
+                        choices.add(uuid)
                         servers.drop(i)
                     }
                 }

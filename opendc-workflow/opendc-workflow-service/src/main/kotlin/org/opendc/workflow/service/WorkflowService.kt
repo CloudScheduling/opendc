@@ -24,8 +24,6 @@ package org.opendc.workflow.service
 
 import io.opentelemetry.api.metrics.MeterProvider
 import org.opendc.compute.api.ComputeClient
-import org.opendc.compute.service.driver.Host
-import org.opendc.compute.simulator.SimHost
 import org.opendc.workflow.api.Job
 import org.opendc.workflow.service.internal.JobState
 import org.opendc.workflow.service.internal.WorkflowServiceImpl
@@ -35,7 +33,7 @@ import org.opendc.workflow.service.scheduler.task.TaskEligibilityPolicy
 import org.opendc.workflow.service.scheduler.task.TaskOrderPolicy
 import java.time.Clock
 import java.time.Duration
-import java.util.HashMap
+import java.util.*
 import kotlin.coroutines.CoroutineContext
 
 /**
@@ -54,12 +52,12 @@ public interface WorkflowService : AutoCloseable {
      * Not part of the constructor to avoid changing it for every single invocation.
      * Requires more care of dev, but we will survive that, won't we?
      */
-    public var hosts: MutableSet<SimHost>
+    public var hosts: MutableSet<Pair<UUID, Int>>
 
     /**
      * Shared with the Elopfilter to update it accordingly
      */
-    public var jobHostMapping: HashMap<JobState, Set<Host>>
+    public var jobHostMapping: HashMap<JobState, Set<UUID>>
 
     /**
      * Terminate the lifecycle of the workflow service, stopping all running workflows.

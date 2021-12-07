@@ -23,17 +23,12 @@
 package org.opendc.workflow.service
 
 import io.opentelemetry.sdk.metrics.export.MetricProducer
-import kotlinx.coroutines.*
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertAll
-import org.opendc.compute.service.driver.Host
 import org.opendc.compute.service.scheduler.FilterScheduler
 import org.opendc.compute.service.scheduler.filters.ComputeFilter
 import org.opendc.compute.service.scheduler.filters.ElopFilter
-import org.opendc.compute.service.scheduler.filters.RamFilter
-import org.opendc.compute.service.scheduler.filters.VCpuFilter
 import org.opendc.compute.service.scheduler.weights.VCpuWeigher
 import org.opendc.compute.workload.ComputeServiceHelper
 import org.opendc.compute.workload.topology.HostSpec
@@ -42,9 +37,13 @@ import org.opendc.simulator.compute.model.MachineModel
 import org.opendc.simulator.compute.model.MemoryUnit
 import org.opendc.simulator.compute.model.ProcessingNode
 import org.opendc.simulator.compute.model.ProcessingUnit
-import org.opendc.simulator.compute.power.ConstantPowerModel
+import org.opendc.simulator.compute.power.LinearPowerModel
 import org.opendc.simulator.compute.power.SimplePowerDriver
+import org.opendc.simulator.core.SimulationCoroutineScope
 import org.opendc.simulator.core.runBlockingSimulation
+import org.opendc.telemetry.compute.ComputeMetricExporter
+import org.opendc.telemetry.compute.table.HostTableReader
+import org.opendc.telemetry.sdk.metrics.export.CoroutineMetricReader
 import org.opendc.trace.Trace
 import org.opendc.workflow.api.Task
 import org.opendc.workflow.service.internal.JobState
@@ -56,6 +55,7 @@ import org.opendc.workflow.service.scheduler.task.SubmissionTimeTaskOrderPolicy
 import org.opendc.workflow.workload.WorkflowSchedulerSpec
 import org.opendc.workflow.workload.WorkflowServiceHelper
 import org.opendc.workflow.workload.toJobs
+import java.io.PrintWriter
 import java.nio.file.Paths
 import java.time.Clock
 import java.time.Duration
@@ -84,7 +84,7 @@ internal class ElopTest {
     @Test
     fun testWithRealTrace() {
         val trace = Trace.open(
-            Paths.get(checkNotNull(ElopTest::class.java.getResource("/askalon-new_ee17_parquet")).toURI()),
+            Paths.get(checkNotNull(ElopTest::class.java.getResource("/askalon-new_ee10_parquet")).toURI()),
             format = "wtf"
         )
 
@@ -97,11 +97,37 @@ internal class ElopTest {
     @Test
     fun testElop() = runBlockingSimulation {
         val (workflowHelper, computeHelper) = setupEnvironment(coroutineContext, clock)
-        runTrace(workflowHelper, computeHelper)
+        val (metricReader, metricsFile) = setupMetricReaders(this, computeHelper, fileName="metrics.csv")
+        runTrace(workflowHelper, computeHelper, metricReader, metricsFile)
         val metrics = collectMetrics(workflowHelper.metricProducer)
     }
 
-    private suspend fun runTrace(workflowHelper : WorkflowServiceHelper, computeHelper : ComputeServiceHelper) {
+    private fun setupMetricReaders(
+        scope : SimulationCoroutineScopelope,
+        computeHelper: ComputeServiceHelper,
+        fileName: String = "metrics.csv"
+    ): Pair<CoroutineMetricReader, PrintWriter> {
+        val metricsFile = PrintWriter(fileName)
+        metricsFile.appendLine("cpuUsage,cpuIdleTime,energyUsage")
+
+        val metricReader = CoroutineMetricReader(scope, computeHelper.producers, object : ComputeMetricExporter(){
+            var energyUsage = 0.0
+            var cpuUsage = 0.0
+            var cpuIdleTime = 0L
+            //Makespan
+
+            override fun record(reader: HostTableReader){
+                cpuUsage = reader.cpuUsage
+                cpuIdleTime = reader.cpuIdleTime
+                energyUsage = reader.powerUsage
+                metricsFile.appendLine(" $cpuUsage,$cpuIdleTime,$energyUsage")
+            }
+        }, exportInterval = Duration.ofMinutes(5))
+
+        return Pair(metricReader, metricsFile)
+    }
+
+    private suspend fun runTrace(workflowHelper : WorkflowServiceHelper, computeHelper : ComputeServiceHelper, metricReader: CoroutineMetricReader, metricsFile : PrintWriter) {
         try {
             val trace = Trace.open(
                 Paths.get(checkNotNull(ElopTest::class.java.getResource("/askalon-new_ee17_parquet")).toURI()),
@@ -112,12 +138,14 @@ internal class ElopTest {
         } finally {
             workflowHelper.close()
             computeHelper.close()
+            metricReader.close()
+            metricsFile.close()
         }
     }
 
     private fun setupEnvironment(coroutineContext : CoroutineContext, clock : Clock): HelperWrapper {
         val HOST_COUNT = 10
-        val jobHostMapping = HashMap<JobState, Set<Host>>()
+        val jobHostMapping = HashMap<JobState, Set<UUID>>()
 
         val computeScheduler = FilterScheduler(
             filters = listOf(
@@ -153,7 +181,7 @@ internal class ElopTest {
         // I think, we will eventually go to hell for this
         // We add this here to not change the signatur of the constructor
         // dirty hack -> better: 2nd constructor
-        workflowHelper.service.hosts = computeHelper.hosts
+        workflowHelper.service.hosts = computeHelper.hosts.map { Pair(it.uid, it.model.cpuCount) }.toMutableSet()
         workflowHelper.service.jobHostMapping = jobHostMapping
 
         return HelperWrapper(workflowHelper, computeHelper)
@@ -176,7 +204,7 @@ internal class ElopTest {
             "host-$uid",
             emptyMap(),
             machineModel,
-            SimplePowerDriver(ConstantPowerModel(0.0)),
+            SimplePowerDriver(LinearPowerModel(250.0, 50.0)),
             SimSpaceSharedHypervisorProvider()
         )
     }
