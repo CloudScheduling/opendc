@@ -4,6 +4,7 @@ import org.opendc.workflow.service.internal.TaskState
 import org.opendc.workflow.service.internal.WorkflowServiceImpl
 import org.opendc.compute.workload.topology.HostSpec
 import org.opendc.simulator.compute.model.ProcessingUnit
+import org.opendc.workflow.api.WORKFLOW_TASK_CORES
 import java.util.*
 
 private data class ExecutionSpec(val task: TaskState, val host: HostSpec, val selectedCpus: List<ProcessingUnit>, val completionTime: Double)
@@ -15,23 +16,37 @@ public class MinMinPolicy(public val hosts : Set<HostSpec>) : HolisticTaskOrderP
      * @param tasks eligible tasks for scheduling
      */
     override fun orderTasks(tasks: Set<TaskState>): Queue<TaskState> {
+        // A nested map of hosts, CPU cores, and the time a new task could start on this core.
         val startTimes = hosts.associateBy(
             { host -> host },
-            { host -> host.model.cpus.associateBy({ cpu -> cpu }, { 0.0 }).toMutableMap() })
+            { host -> host.model.cpus.associateBy({ core -> core }, { 0.0 }).toMutableMap() })
 
         val unmappedTasks = tasks.toMutableSet()
         val orderedTasks = LinkedList<TaskState>()
 
         while (unmappedTasks.isNotEmpty()) {
-            val (nextTask, selectedHost, selectedCpus, completionTime) = unmappedTasks
-                .map { getMinExecutionSpec(it, startTimes) }
-                .minByOrNull { it.completionTime }!!
+            var exec: ExecutionSpec? = null
+            var min = Double.MAX_VALUE
 
-            for (cpu in selectedCpus) {
-                startTimes[selectedHost]!![cpu] = completionTime
+            for (task in unmappedTasks) {
+                val result = getMinExecutionSpec(task, startTimes)
+                if (result.completionTime < min) {
+                    min = result.completionTime
+                    exec = result
+                }
+
+                if (min == 0.0) {
+                    break
+                }
             }
 
-            nextTask.task.metadata["assigned-host"] = selectedHost.name
+            val (nextTask, selectedHost, selectedCores, completionTime) = exec!!
+
+            for (core in selectedCores) {
+                startTimes[selectedHost]!![core] = completionTime
+            }
+
+            nextTask.task.metadata["assigned-host"] = Pair(selectedHost.uid, selectedHost.name)
             unmappedTasks.remove(nextTask)
 
             orderedTasks.addLast(nextTask)
@@ -49,37 +64,39 @@ public class MinMinPolicy(public val hosts : Set<HostSpec>) : HolisticTaskOrderP
      */
     private fun getMinExecutionSpec(taskState: TaskState, startTimes: Map<HostSpec, Map<ProcessingUnit, Double>>): ExecutionSpec {
         var min = Double.MAX_VALUE
-        var selectedHost:HostSpec? = null
-        var selectedCpus: List<ProcessingUnit>? = null
+        var selectedHost: HostSpec? = null
+        var selectedCores: List<ProcessingUnit>? = null
 
-        // TODO Check metadata key
-        val requiredCpus: Int = taskState.task.metadata["required-cpus"] as Int
-        val potentialHosts = hosts.filter { it.model.cpus.count() >= requiredCpus }
+        val requiredCores: Int = taskState.task.metadata[WORKFLOW_TASK_CORES] as? Int ?: 1
+        // If we assume that a task can only run on the cores of exactly one CPU:
+        // val potentialHosts = hosts.filter { it.model.cpus.groupBy { core -> core.node }.maxOf { entry -> entry.value.count() } >= requiredCores }
+        val potentialHosts = hosts.filter { it.model.cpus.count() >= requiredCores }
 
         for (host in potentialHosts) {
-            // Select the n CPUs that complete their previous task first.
-            val minCpuCompletionTimes = startTimes[host]!!
+            // Select the n cores that complete their last scheduled task first.
+            // This only works because we assume all cores have the same clock rate.
+            val minCoreCompletionTimes = startTimes[host]!!
                 .toList()
-                .sortedBy { it.second } // it.second = completion time of CPU
-                .take(requiredCpus)
+                .sortedBy { it.second } // it.second = completion time of core
+                .take(requiredCores)
 
-            val startTime = minCpuCompletionTimes.maxOf { it.second }
+            val startTime = minCoreCompletionTimes.maxOf { it.second }
 
-            val execTime = calculateExecutionTime(taskState, requiredCpus, host)
+            val execTime = calculateExecutionTime(taskState, requiredCores, host)
             val taskCompletionTime = startTime + execTime
 
             if (taskCompletionTime < min) {
                 min = taskCompletionTime
                 selectedHost = host
-                selectedCpus = minCpuCompletionTimes.map { it.first } // get CPUs
+                selectedCores = minCoreCompletionTimes.map { it.first } // get CPU cores
             }
         }
 
-        if (selectedHost == null || selectedCpus == null) {
+        if (selectedHost == null || selectedCores == null) {
             throw Exception("No host or CPUs could be found")
         }
 
-        return ExecutionSpec(taskState, selectedHost, selectedCpus, min)
+        return ExecutionSpec(taskState, selectedHost, selectedCores, min)
     }
 
     /**
@@ -88,11 +105,15 @@ public class MinMinPolicy(public val hosts : Set<HostSpec>) : HolisticTaskOrderP
      * once it is running on it (if a task T waits until point in time A to run
      * on host H and then runs until time B, the execution time is B-A).
      */
-    private fun calculateExecutionTime(task: TaskState, requiredCpus: Int, host: HostSpec): Double {
-        val cpuCycles = task.task.metadata["cpu-cycles"] as Int
-        // Assumption: all CPUs have same frequency
+    private fun calculateExecutionTime(task: TaskState, requiredCores: Int, host: HostSpec): Double {
+        val cpuCycles = task.task.metadata["cpu-cycles"] as Long
+        // Assumption: all cores of all CPUs of this host have same frequency.
+        // Otherwise, the calculation would get way to complex. We would have to find a pair of
+        // n cores. Let s be the time the last of these n cores becomes available (startTime).
+        // Then the completion time is s + the maximum execution time of these cores. But the
+        // new startTimes (availabilityTimes) depend on the actual clock rate of each core. Puh...
         val frequency = host.model.cpus.first().frequency
-        return cpuCycles / (frequency * requiredCpus)
+        return cpuCycles / (frequency * requiredCores)
     }
 
     override fun invoke(scheduler: WorkflowServiceImpl): Comparator<TaskState> {

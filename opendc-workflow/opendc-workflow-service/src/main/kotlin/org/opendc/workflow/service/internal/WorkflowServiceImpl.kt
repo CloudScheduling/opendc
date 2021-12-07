@@ -202,7 +202,7 @@ public class WorkflowServiceImpl(
         this.jobQueue = PriorityQueue(100, jobOrderPolicy(this).thenBy { it.job.uid })
         this.taskEligibilityPolicy = taskEligibilityPolicy(this)
         this.taskOrderPolicy = taskOrderPolicy
-        this.taskQueue = PriorityQueue<TaskState>(0)
+        this.taskQueue = PriorityQueue<TaskState>(1)
 
         scope.launch { image = computeClient.newImage("workflow-runner") }
     }
@@ -342,8 +342,9 @@ public class WorkflowServiceImpl(
             this.taskQueue = taskOrderPolicy.orderTasks(eligibleTasks)
         } else {
             this.taskQueue = PriorityQueue(
-                1000,
+                eligibleTasks.size,
                 taskOrderPolicy(this).thenBy { it.task.uid })
+            this.taskQueue.addAll(eligibleTasks)
         }
 
         // T3 Per task
