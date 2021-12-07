@@ -44,5 +44,8 @@ dependencies {
     testImplementation(projects.opendcTrace.opendcTraceApi)
     testImplementation(projects.opendcTelemetry.opendcTelemetrySdk)
     testRuntimeOnly(projects.opendcTrace.opendcTraceWtf)
+    testImplementation(projects.opendcTelemetry.opendcTelemetryCompute)
+
+    testRuntimeOnly(projects.opendcTrace.opendcTraceGwf)
     testRuntimeOnly(libs.log4j.slf4j)
 }
