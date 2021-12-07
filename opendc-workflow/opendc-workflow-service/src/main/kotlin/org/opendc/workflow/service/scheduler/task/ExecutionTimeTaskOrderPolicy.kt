@@ -36,7 +36,7 @@ public data class ExecutionTimeTaskOderPolicy(public val ascending: Boolean = tr
 
             override fun compare(o1: TaskState, o2: TaskState): Int {
                 return compareValuesBy(o1, o2) { state -> state.duration }.let {
-                    if (ascending) it else -it
+                    if (!ascending) it else -it
                 }
             }
         }

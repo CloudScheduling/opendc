@@ -37,7 +37,7 @@ public data class ExecutionTimeJobOrderPolicy(val ascending: Boolean = true) : J
             }
 
             override fun compare(o1: JobState, o2: JobState): Int {
-                return compareValuesBy(o1, o2) { it.job.duration }.let { if (ascending) it else -it }
+                return compareValuesBy(o1, o2) { it.job.duration }.let { if (!ascending) it else -it }
             }
         }
 

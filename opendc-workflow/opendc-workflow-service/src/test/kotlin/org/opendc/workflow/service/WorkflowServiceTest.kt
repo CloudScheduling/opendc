@@ -89,7 +89,7 @@ internal class WorkflowServiceTest {
         metricsFile.appendLine("cpuUsage,cpuIdleTime,energyUsage")
 
         repeat(HOST_COUNT) { computeHelper.registerHost(createHostSpec(it)) }
-
+        computeHelper.hosts
         // Configure the WorkflowService that is responsible for scheduling the workflow tasks onto machines
         val workflowScheduler = WorkflowSchedulerSpec(
             schedulingQuantum = Duration.ofMillis(100),
