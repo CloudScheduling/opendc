@@ -26,9 +26,10 @@ import io.opentelemetry.api.metrics.Meter
 import io.opentelemetry.api.metrics.MeterProvider
 import kotlinx.coroutines.*
 import org.opendc.compute.api.*
+import org.opendc.compute.service.driver.Host
+import org.opendc.compute.simulator.SimHost
 import org.opendc.utils.TimerScheduler
 import org.opendc.workflow.api.Job
-import org.opendc.workflow.api.Task
 import org.opendc.workflow.api.WORKFLOW_TASK_CORES
 import org.opendc.workflow.service.*
 import org.opendc.workflow.service.scheduler.job.JobAdmissionPolicy
@@ -38,9 +39,9 @@ import org.opendc.workflow.service.scheduler.task.TaskOrderPolicy
 import java.time.Clock
 import java.time.Duration
 import java.util.*
+import kotlin.collections.HashSet
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.resume
-import kotlin.math.max
 
 /**
  * A [WorkflowService] that distributes work through a multi-stage process based on the Reference Architecture for
@@ -235,6 +236,9 @@ public class WorkflowServiceImpl(
         requestSchedulingCycle()
     }
 
+    override var hosts: MutableSet<SimHost> = mutableSetOf()
+    override var jobHostMapping: HashMap<JobState, Set<Host>> = HashMap()
+
     override fun close() {
         scope.cancel()
     }
@@ -312,8 +316,27 @@ public class WorkflowServiceImpl(
             }
 
             // calculate LOP
-            jobInstance.lop = calculateLop(jobInstance)
-            // assign to filter list
+            jobInstance.calculateLop()
+            // assign enough resources to fit -> sort by no of cpu cores
+            // select fitting as long as there are cores missing
+            val servers = hosts.toList().sortedBy { it.model.cpuCount }
+            var lopLeft = jobInstance.lop
+            val choices = HashSet<SimHost>()
+            // TODO: could be optimized by binary search -> n^2 to n log n
+            while (lopLeft > 0) {
+                for ((i, host) in servers.withIndex()) {
+                    val firstMatch = lopLeft >= host.model.cpuCount
+                    val lastHost = i == servers.size - 1 // cannot fit a single instance -> fill up with multiple machines
+                    if (firstMatch || lastHost) {
+                        choices.add(host)
+                        lopLeft -= host.model.cpuCount
+                        choices.add(host)
+                        servers.drop(i)
+                    }
+                }
+            }
+            jobHostMapping[jobInstance] = choices
+
             //compute
             // Add job roots to the scheduling queue
             for (task in jobInstance.tasks) {
@@ -353,15 +376,15 @@ public class WorkflowServiceImpl(
                     cores,
                     1000
                 ) // TODO How to determine memory usage for workflow task
+                val extMeta = hashMapOf<String, Any>("task" to instance) // dirty hack -> add task to meta data
+                extMeta.putAll(instance.task.metadata)
                 val server = computeClient.newServer(
                     instance.task.name,
                     image,
                     flavor,
                     start = false,
-                    meta = instance.task.metadata,
-                    taskState = instance
+                    meta = extMeta
                 )
-
                 instance.state = TaskStatus.ACTIVE
                 instance.server = server
                 taskByServer[server] = instance
@@ -374,30 +397,6 @@ public class WorkflowServiceImpl(
             taskQueue.poll()
             rootListener.taskAssigned(instance)
         }
-    }
-
-    private fun calculateLop(jobInstance: JobState): Int {
-        var t = jobInstance.job.tasks
-        // identify the start task -> task that comes first (get task with min submittedAt)
-        val startTask = t.elementAt(0) // todo -> identify
-        // todo: if there is more than one starting task through error or create virtual stuff
-        // do breitensuche: for each path -> give token
-        var nextLevel = LinkedList<Task>() // todo: faster implementation
-        nextLevel.add(startTask)
-
-        var lop = 0
-        while (!nextLevel.isEmpty()) {
-            var currLevel = nextLevel
-            nextLevel = LinkedList<Task>()
-            var localCounter = 0
-            while (!currLevel.isEmpty()) {
-                val currElem = currLevel.pop()
-                nextLevel.addAll(currElem.dependencies)
-                localCounter++ // todo: do I need to count the number of actual CPUs?
-            }
-            lop = max(localCounter, lop)
-        }
-        return lop
     }
 
     override fun onStateChanged(server: Server, newState: ServerState) {

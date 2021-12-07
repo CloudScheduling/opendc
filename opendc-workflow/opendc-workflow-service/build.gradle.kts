@@ -36,13 +36,13 @@ dependencies {
     api(projects.opendcTelemetry.opendcTelemetryApi)
     implementation(projects.opendcUtils)
     implementation(libs.kotlin.logging)
+    implementation(projects.opendcCompute.opendcComputeSimulator)
 
     testImplementation(projects.opendcWorkflow.opendcWorkflowWorkload)
     testImplementation(projects.opendcCompute.opendcComputeWorkload)
     testImplementation(projects.opendcSimulator.opendcSimulatorCore)
     testImplementation(projects.opendcTrace.opendcTraceApi)
     testImplementation(projects.opendcTelemetry.opendcTelemetrySdk)
-    //testRuntimeOnly(projects.opendcTrace.opendcTraceGwf)
-    testRuntimeOnly(libs.log4j.slf4j)
     testRuntimeOnly(projects.opendcTrace.opendcTraceWtf)
+    testRuntimeOnly(libs.log4j.slf4j)
 }

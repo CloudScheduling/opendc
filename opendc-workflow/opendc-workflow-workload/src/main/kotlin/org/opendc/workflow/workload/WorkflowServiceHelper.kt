@@ -30,6 +30,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.opendc.compute.api.ComputeClient
+import org.opendc.compute.simulator.SimHost
 import org.opendc.telemetry.sdk.toOtelClock
 import org.opendc.workflow.api.Job
 import org.opendc.workflow.service.WorkflowService

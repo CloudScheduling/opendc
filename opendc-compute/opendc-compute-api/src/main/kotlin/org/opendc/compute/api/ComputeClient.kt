@@ -22,7 +22,6 @@
 
 package org.opendc.compute.api
 
-import org.opendc.workflow.service.internal.TaskState
 import java.util.UUID
 
 /**
@@ -111,8 +110,7 @@ public interface ComputeClient : AutoCloseable {
         flavor: Flavor,
         labels: Map<String, String> = emptyMap(),
         meta: Map<String, Any> = emptyMap(),
-        start: Boolean = true,
-        taskState: TaskState? = null
+        start: Boolean = true
     ): Server
 
     /**

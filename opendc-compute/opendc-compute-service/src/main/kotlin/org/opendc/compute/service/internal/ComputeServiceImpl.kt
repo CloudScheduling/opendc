@@ -36,7 +36,6 @@ import org.opendc.compute.service.driver.HostListener
 import org.opendc.compute.service.driver.HostState
 import org.opendc.compute.service.scheduler.ComputeScheduler
 import org.opendc.utils.TimerScheduler
-import org.opendc.workflow.service.internal.TaskState
 import java.time.Clock
 import java.time.Duration
 import java.util.*
@@ -254,8 +253,7 @@ internal class ComputeServiceImpl(
                 flavor: Flavor,
                 labels: Map<String, String>,
                 meta: Map<String, Any>,
-                start: Boolean,
-                taskState: TaskState?
+                start: Boolean
             ): Server {
                 check(!isClosed) { "Client is closed" }
 
@@ -267,8 +265,7 @@ internal class ComputeServiceImpl(
                     requireNotNull(flavors[flavor.uid]) { "Unknown flavor" },
                     requireNotNull(images[image.uid]) { "Unknown image" },
                     labels.toMutableMap(),
-                    meta.toMutableMap(),
-                    taskState
+                    meta.toMutableMap()
                 )
 
                 servers[uid] = server

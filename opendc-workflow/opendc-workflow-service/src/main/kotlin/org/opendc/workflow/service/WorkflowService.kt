@@ -24,7 +24,10 @@ package org.opendc.workflow.service
 
 import io.opentelemetry.api.metrics.MeterProvider
 import org.opendc.compute.api.ComputeClient
+import org.opendc.compute.service.driver.Host
+import org.opendc.compute.simulator.SimHost
 import org.opendc.workflow.api.Job
+import org.opendc.workflow.service.internal.JobState
 import org.opendc.workflow.service.internal.WorkflowServiceImpl
 import org.opendc.workflow.service.scheduler.job.JobAdmissionPolicy
 import org.opendc.workflow.service.scheduler.job.JobOrderPolicy
@@ -32,6 +35,7 @@ import org.opendc.workflow.service.scheduler.task.TaskEligibilityPolicy
 import org.opendc.workflow.service.scheduler.task.TaskOrderPolicy
 import java.time.Clock
 import java.time.Duration
+import java.util.HashMap
 import kotlin.coroutines.CoroutineContext
 
 /**
@@ -44,6 +48,18 @@ public interface WorkflowService : AutoCloseable {
      * Submit the specified [Job] and suspend execution until the job is finished.
      */
     public suspend fun invoke(job: Job)
+
+    /**
+     * Dirty workaround to get the hosts available at job level scheduling.
+     * Not part of the constructor to avoid changing it for every single invocation.
+     * Requires more care of dev, but we will survive that, won't we?
+     */
+    public var hosts: MutableSet<SimHost>
+
+    /**
+     * Shared with the Elopfilter to update it accordingly
+     */
+    public var jobHostMapping: HashMap<JobState, Set<Host>>
 
     /**
      * Terminate the lifecycle of the workflow service, stopping all running workflows.

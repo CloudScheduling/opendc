@@ -23,6 +23,8 @@
 package org.opendc.workflow.api
 
 import java.util.*
+import kotlin.collections.HashSet
+import kotlin.math.max
 
 /**
  * A workload that represents a directed acyclic graph (DAG) of tasks with control and data dependencies between tasks.
@@ -43,4 +45,45 @@ public data class Job(
     override fun hashCode(): Int = uid.hashCode()
 
     override fun toString(): String = "Job(uid=$uid, name=$name, tasks=${tasks.size}, metadata=$metadata)"
+
+    public fun calculateLop() : Int {
+        // reverse the whole thing :)
+        for (t in this.tasks) {
+            for (t2 in t.dependencies) {
+                t2.enables.add(t)
+            }
+        }
+
+        // identify the start task -> task that comes first (get task with min submittedAt)
+        val startTasks = this.tasks.filter { it.dependencies.isEmpty() }
+        if (startTasks.size != 1) {
+            throw Exception("More than one or no start task found")
+        }
+        val startTask = startTasks[0]
+        startTask.token = true
+        // do breitensuche: for each path -> give token
+        var nextLevel = HashSet<Task>()
+        nextLevel.add(startTask)
+
+        var lop = 0
+        while (nextLevel.isNotEmpty()) {
+            var localCounter = 0
+            var newElements = HashSet<Task>()
+            var elemsToRemove = HashSet<Task>()
+            var assignTokens = HashSet<Task>()
+            for (currElem in nextLevel) {
+                newElements.addAll(currElem.enables) // set -> unique
+                if (currElem.allDependenciesHaveTokens()) {
+                    assignTokens.add(currElem)
+                    elemsToRemove.add(currElem)
+                    localCounter += currElem.metadata["workflow:task:cores"] as Int
+                }
+            }
+            for (elem in assignTokens) elem.token = true
+            nextLevel.addAll(newElements)
+            nextLevel.removeAll(elemsToRemove)
+            lop = max(localCounter, lop) // TODO: or do I need to count the CPU cores?
+        }
+        return lop
+    }
 }

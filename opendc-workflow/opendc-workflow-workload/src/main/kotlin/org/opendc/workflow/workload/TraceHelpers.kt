@@ -50,7 +50,6 @@ public fun Trace.toJobs(): List<Job> {
             // Bag of tasks without workflow ID all share the same workflow
             val workflowId = if (reader.hasColumn(TASK_WORKFLOW_ID)) reader.get(TASK_WORKFLOW_ID).toLong() else 0L
             val workflow = jobs.computeIfAbsent(workflowId) { id -> Job(UUID(0L, id), "<unnamed>", HashSet(), HashMap()) }
-
             val id = reader.get(TASK_ID).toLong()
             val grantedCpus = if (reader.hasColumn(TASK_ALLOC_NCPUS))
                 reader.getInt(TASK_ALLOC_NCPUS)

@@ -49,6 +49,7 @@ import org.opendc.simulator.compute.power.PowerDriver
 import org.opendc.simulator.compute.power.SimplePowerDriver
 import org.opendc.simulator.compute.workload.SimWorkload
 import org.opendc.simulator.flow.FlowEngine
+import org.opendc.workflow.service.internal.JobState
 import java.util.*
 import kotlin.coroutines.CoroutineContext
 
@@ -189,6 +190,14 @@ public class SimHost(
         val canFit = hypervisor.canFit(server.flavor.toMachineModel())
 
         return sufficientMemory && enoughCpus && canFit
+    }
+
+    /**
+     * We cannot determine the memory as well as fit to the hypervisor.
+     * This will be fine, right?
+     */
+    public fun jobCanFit(jobState: JobState): Boolean {
+        return model.cpuCount >= jobState.lop
     }
 
     override suspend fun spawn(server: Server, start: Boolean) {

@@ -37,6 +37,7 @@ dependencies {
     implementation(projects.opendcUtils)
     implementation(libs.opentelemetry.semconv)
     implementation(libs.kotlin.logging)
+    implementation(projects.opendcWorkflow.opendcWorkflowService)
 
     testImplementation(projects.opendcSimulator.opendcSimulatorCore)
     testImplementation(projects.opendcTelemetry.opendcTelemetrySdk)

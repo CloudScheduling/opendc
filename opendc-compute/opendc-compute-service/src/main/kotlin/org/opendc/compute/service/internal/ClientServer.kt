@@ -27,7 +27,6 @@ import org.opendc.compute.api.Image
 import org.opendc.compute.api.Server
 import org.opendc.compute.api.ServerState
 import org.opendc.compute.api.ServerWatcher
-import org.opendc.workflow.service.internal.TaskState
 import java.util.*
 
 /**
@@ -39,9 +38,6 @@ internal class ClientServer(private val delegate: Server) : Server, ServerWatche
     override val uid: UUID = delegate.uid
 
     override var name: String = delegate.name
-        private set
-
-    override var taskState: TaskState = delegate.taskState
         private set
 
     override var flavor: Flavor = delegate.flavor

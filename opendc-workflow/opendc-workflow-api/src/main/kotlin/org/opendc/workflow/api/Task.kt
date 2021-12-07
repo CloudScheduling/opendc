@@ -23,6 +23,7 @@
 package org.opendc.workflow.api
 
 import java.util.*
+import kotlin.collections.HashSet
 
 /**
  * A stage of a [Job].
@@ -42,4 +43,28 @@ public data class Task(
     override fun equals(other: Any?): Boolean = other is Task && uid == other.uid
 
     override fun hashCode(): Int = uid.hashCode()
+
+    /**
+     * Backreference to related job.
+     * Can be null, because that makes it easier to implement for us here.
+     */
+    public var job : Job? = null
+
+
+    /**
+     * Set of all tasks that are not blocked by this task anymore
+     */
+    val enables: HashSet<Task> = HashSet()
+
+    /**
+     * Token for LOP
+     */
+    var token: Boolean = false
+
+    public fun allDependenciesHaveTokens() : Boolean {
+        for (task in this.dependencies) {
+            if (!task.token) return false
+        }
+        return true
+    }
 }

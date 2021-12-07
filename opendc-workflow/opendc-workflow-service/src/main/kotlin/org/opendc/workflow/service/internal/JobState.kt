@@ -23,7 +23,10 @@
 package org.opendc.workflow.service.internal
 
 import org.opendc.workflow.api.Job
+import org.opendc.workflow.api.Task
+import java.util.*
 import kotlin.coroutines.Continuation
+import kotlin.math.max
 
 public class JobState(public val job: Job, public val submittedAt: Long, internal val cont: Continuation<Unit>) {
     /**
@@ -33,10 +36,16 @@ public class JobState(public val job: Job, public val submittedAt: Long, interna
         get() = tasks.isEmpty()
 
     public var lop : Int = 0
+        private set
 
     internal val tasks: MutableSet<TaskState> = mutableSetOf()
 
     override fun equals(other: Any?): Boolean = other is JobState && other.job == job
 
     override fun hashCode(): Int = job.hashCode()
+
+    public fun calculateLop() : Int {
+        this.lop = this.job.calculateLop()
+        return lop
+    }
 }
