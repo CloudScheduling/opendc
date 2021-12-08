@@ -24,7 +24,6 @@ package org.opendc.workflow.service
 
 import io.opentelemetry.sdk.metrics.export.MetricProducer
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.DisplayName
@@ -42,22 +41,18 @@ import org.opendc.simulator.compute.model.MachineModel
 import org.opendc.simulator.compute.model.MemoryUnit
 import org.opendc.simulator.compute.model.ProcessingNode
 import org.opendc.simulator.compute.model.ProcessingUnit
-import org.opendc.simulator.compute.power.ConstantPowerModel
 import org.opendc.simulator.compute.power.LinearPowerModel
 import org.opendc.simulator.compute.power.SimplePowerDriver
 import org.opendc.simulator.core.runBlockingSimulation
 import org.opendc.telemetry.compute.ComputeMetricExporter
 import org.opendc.telemetry.compute.table.HostTableReader
-import org.opendc.telemetry.compute.table.ServerTableReader
 import org.opendc.telemetry.sdk.metrics.export.CoroutineMetricReader
 import org.opendc.trace.Trace
 import org.opendc.workflow.service.internal.WorkflowServiceImpl
 import org.opendc.workflow.service.scheduler.job.ExecutionTimeJobOrderPolicy
 import org.opendc.workflow.service.scheduler.job.NullJobAdmissionPolicy
-import org.opendc.workflow.service.scheduler.job.SubmissionTimeJobOrderPolicy
 import org.opendc.workflow.service.scheduler.task.ExecutionTimeTaskOderPolicy
 import org.opendc.workflow.service.scheduler.task.NullTaskEligibilityPolicy
-import org.opendc.workflow.service.scheduler.task.SubmissionTimeTaskOrderPolicy
 import org.opendc.workflow.workload.WorkflowSchedulerSpec
 import org.opendc.workflow.workload.WorkflowServiceHelper
 import org.opendc.workflow.workload.toJobs
@@ -65,7 +60,6 @@ import java.nio.file.Paths
 import java.time.Duration
 import java.util.*
 import java.io.PrintWriter
-import kotlin.random.Random
 
 /**
  * Integration test suite for the [WorkflowService].
@@ -85,11 +79,10 @@ internal class WorkflowServiceTest {
         )
         val computeHelper = ComputeServiceHelper(coroutineContext, clock, computeScheduler, schedulingQuantum = Duration.ofSeconds(1))
 
-        val metricsFile = PrintWriter("metrics.csv")
-        metricsFile.appendLine("cpuUsage,cpuIdleTime,energyUsage")
+        val metricsFile = PrintWriter("metrics-homo-unscaled.csv")
+        metricsFile.appendLine("cpuUsage(CPU usage of all CPUs of the host in MHz),energyUsage(Power usage of the host in W)")
 
-        repeat(HOST_COUNT) { computeHelper.registerHost(createHostSpec(it)) }
-        computeHelper.hosts
+        repeat(HOST_COUNT) { computeHelper.registerHost(createHomogenousHostSpec(it)) }
         // Configure the WorkflowService that is responsible for scheduling the workflow tasks onto machines
         val workflowScheduler = WorkflowSchedulerSpec(
             schedulingQuantum = Duration.ofMillis(100),
@@ -103,37 +96,26 @@ internal class WorkflowServiceTest {
         val metricReader = CoroutineMetricReader(this, computeHelper.producers, object : ComputeMetricExporter(){
             var energyUsage = 0.0
             var cpuUsage = 0.0
-            var cpuIdleTime = 0L
             //Makespan
 
             override fun record(reader: HostTableReader){
                 cpuUsage = reader.cpuUsage
-                cpuIdleTime = reader.cpuIdleTime
                 energyUsage = reader.powerUsage
-                metricsFile.appendLine(" $cpuUsage,$cpuIdleTime,$energyUsage")
+                if(cpuUsage != 0.0 && energyUsage != 0.0)
+                metricsFile.appendLine("$cpuUsage,$energyUsage")
             }
-
-//            override fun record(reader: ServerTableReader){
-//                println()
-//            }
-
-        }, exportInterval = Duration.ofMinutes(5))
+        }, exportInterval = Duration.ofSeconds(10))
 
         try {
-//            val trace = Trace.open(
-//                Paths.get(checkNotNull(WorkflowServiceTest::class.java.getResource("/askalon-new_ee10_parquet")).toURI()),
-//                format = "wtf"
-                val trace = Trace.open(
-                Paths.get(checkNotNull(WorkflowServiceTest::class.java.getResource("/trace.gwf")).toURI()),
-            format = "gwf"
+            val trace = Trace.open(
+                Paths.get(checkNotNull(WorkflowServiceTest::class.java.getResource("/askalon-new_ee11_parquet")).toURI()),
+                format = "wtf"
             )
 
             coroutineScope {
                 launch {workflowHelper.replay(trace.toJobs()) }
 
-//                delay(10_000)
                 val impl = (workflowHelper.service as WorkflowServiceImpl)
-                println(impl.jobQueue)
             }
         } finally {
             workflowHelper.close()
@@ -143,9 +125,212 @@ internal class WorkflowServiceTest {
         }
 
         val metrics = collectMetrics(workflowHelper.metricProducer)
+        print(metrics)
 
         assertAll(
-            { assertEquals(758, metrics.jobsSubmitted, "No jobs submitted") },
+            { assertEquals(20, metrics.jobsSubmitted, "No jobs submitted") },
+            { assertEquals(0, metrics.jobsActive, "Not all submitted jobs started") },
+            { assertEquals(metrics.jobsSubmitted, metrics.jobsFinished, "Not all started jobs finished") },
+            { assertEquals(0, metrics.tasksActive, "Not all started tasks finished") },
+            { assertEquals(metrics.tasksSubmitted, metrics.tasksFinished, "Not all started tasks finished") },
+        )
+    }
+    @Test
+    fun testTraceHetero() = runBlockingSimulation {
+        // Configure the ComputeService that is responsible for mapping virtual machines onto physical hosts
+        val HOST_COUNT = 4
+        val computeScheduler = FilterScheduler(
+            filters = listOf(ComputeFilter(), VCpuFilter(1.0), RamFilter(1.0)),
+            weighers = listOf(VCpuWeigher(1.0, multiplier = 1.0))
+        )
+        val computeHelper = ComputeServiceHelper(coroutineContext, clock, computeScheduler, schedulingQuantum = Duration.ofSeconds(1))
+
+        val metricsFile = PrintWriter("metrics-hetero-unscaled.csv")
+        metricsFile.appendLine("cpuUsage(CPU usage of all CPUs of the host in MHz),energyUsage(Power usage of the host in W)")
+
+        repeat(HOST_COUNT/2) { computeHelper.registerHost(createHomogenousHostSpec(it)) }
+        repeat(HOST_COUNT/2) { computeHelper.registerHost(createHomogenousHostSpec2(it)) }
+        // Configure the WorkflowService that is responsible for scheduling the workflow tasks onto machines
+        val workflowScheduler = WorkflowSchedulerSpec(
+            schedulingQuantum = Duration.ofMillis(100),
+            jobAdmissionPolicy = NullJobAdmissionPolicy,
+            jobOrderPolicy = ExecutionTimeJobOrderPolicy(),
+            taskEligibilityPolicy = NullTaskEligibilityPolicy,
+            taskOrderPolicy = ExecutionTimeTaskOderPolicy(),
+        )
+        val workflowHelper = WorkflowServiceHelper(coroutineContext, clock, computeHelper.service.newClient(), workflowScheduler)
+
+        val metricReader = CoroutineMetricReader(this, computeHelper.producers, object : ComputeMetricExporter(){
+            var energyUsage = 0.0
+            var cpuUsage = 0.0
+            //Makespan
+
+            override fun record(reader: HostTableReader){
+                cpuUsage = reader.cpuUsage
+                energyUsage = reader.powerUsage
+                if(cpuUsage != 0.0 && energyUsage != 0.0)
+                    metricsFile.appendLine("$cpuUsage,$energyUsage")
+            }
+        }, exportInterval = Duration.ofSeconds(10))
+
+        try {
+            val trace = Trace.open(
+                Paths.get(checkNotNull(WorkflowServiceTest::class.java.getResource("/askalon-new_ee11_parquet")).toURI()),
+                format = "wtf"
+            )
+
+            coroutineScope {
+                launch {workflowHelper.replay(trace.toJobs()) }
+
+                val impl = (workflowHelper.service as WorkflowServiceImpl)
+            }
+        } finally {
+            workflowHelper.close()
+            computeHelper.close()
+            metricReader.close()
+            metricsFile.close()
+        }
+
+        val metrics = collectMetrics(workflowHelper.metricProducer)
+        print(metrics)
+
+        assertAll(
+            { assertEquals(20, metrics.jobsSubmitted, "No jobs submitted") },
+            { assertEquals(0, metrics.jobsActive, "Not all submitted jobs started") },
+            { assertEquals(metrics.jobsSubmitted, metrics.jobsFinished, "Not all started jobs finished") },
+            { assertEquals(0, metrics.tasksActive, "Not all started tasks finished") },
+            { assertEquals(metrics.tasksSubmitted, metrics.tasksFinished, "Not all started tasks finished") },
+//            { assertEquals(33214236L, clock.millis()) { "Total duration incorrect" } }
+        )
+    }
+    @Test
+    fun testTraceHeteroScaled() = runBlockingSimulation {
+        // Configure the ComputeService that is responsible for mapping virtual machines onto physical hosts
+        val HOST_COUNT = 8
+        val computeScheduler = FilterScheduler(
+            filters = listOf(ComputeFilter(), VCpuFilter(1.0), RamFilter(1.0)),
+            weighers = listOf(VCpuWeigher(1.0, multiplier = 1.0))
+        )
+        val computeHelper = ComputeServiceHelper(coroutineContext, clock, computeScheduler, schedulingQuantum = Duration.ofSeconds(1))
+
+        val metricsFile = PrintWriter("metrics-hetero-scaled.csv")
+        metricsFile.appendLine("cpuUsage(CPU usage of all CPUs of the host in MHz),energyUsage(Power usage of the host in W)")
+
+        repeat(HOST_COUNT/2) { computeHelper.registerHost(createHomogenousHostSpec(it)) }
+        repeat(HOST_COUNT/2) { computeHelper.registerHost(createHomogenousHostSpec2(it)) }
+        // Configure the WorkflowService that is responsible for scheduling the workflow tasks onto machines
+        val workflowScheduler = WorkflowSchedulerSpec(
+            schedulingQuantum = Duration.ofMillis(100),
+            jobAdmissionPolicy = NullJobAdmissionPolicy,
+            jobOrderPolicy = ExecutionTimeJobOrderPolicy(),
+            taskEligibilityPolicy = NullTaskEligibilityPolicy,
+            taskOrderPolicy = ExecutionTimeTaskOderPolicy(),
+        )
+        val workflowHelper = WorkflowServiceHelper(coroutineContext, clock, computeHelper.service.newClient(), workflowScheduler)
+
+        val metricReader = CoroutineMetricReader(this, computeHelper.producers, object : ComputeMetricExporter(){
+            var energyUsage = 0.0
+            var cpuUsage = 0.0
+            //Makespan
+
+            override fun record(reader: HostTableReader){
+                cpuUsage = reader.cpuUsage
+                energyUsage = reader.powerUsage
+                if(cpuUsage != 0.0 && energyUsage != 0.0)
+                    metricsFile.appendLine("$cpuUsage,$energyUsage")
+            }
+        }, exportInterval = Duration.ofSeconds(10))
+
+        try {
+            val trace = Trace.open(
+                Paths.get(checkNotNull(WorkflowServiceTest::class.java.getResource("/askalon-new_ee11_parquet")).toURI()),
+                format = "wtf"
+            )
+
+            coroutineScope {
+                launch {workflowHelper.replay(trace.toJobs()) }
+
+                val impl = (workflowHelper.service as WorkflowServiceImpl)
+            }
+        } finally {
+            workflowHelper.close()
+            computeHelper.close()
+            metricReader.close()
+            metricsFile.close()
+        }
+
+        val metrics = collectMetrics(workflowHelper.metricProducer)
+        print(metrics)
+
+        assertAll(
+            { assertEquals(20, metrics.jobsSubmitted, "No jobs submitted") },
+            { assertEquals(0, metrics.jobsActive, "Not all submitted jobs started") },
+            { assertEquals(metrics.jobsSubmitted, metrics.jobsFinished, "Not all started jobs finished") },
+            { assertEquals(0, metrics.tasksActive, "Not all started tasks finished") },
+            { assertEquals(metrics.tasksSubmitted, metrics.tasksFinished, "Not all started tasks finished") },
+//            { assertEquals(33214236L, clock.millis()) { "Total duration incorrect" } }
+        )
+    }
+    @Test
+    fun testTraceHomoScaled() = runBlockingSimulation {
+        // Configure the ComputeService that is responsible for mapping virtual machines onto physical hosts
+        val HOST_COUNT = 8
+        val computeScheduler = FilterScheduler(
+            filters = listOf(ComputeFilter(), VCpuFilter(1.0), RamFilter(1.0)),
+            weighers = listOf(VCpuWeigher(1.0, multiplier = 1.0))
+        )
+        val computeHelper = ComputeServiceHelper(coroutineContext, clock, computeScheduler, schedulingQuantum = Duration.ofSeconds(1))
+
+        val metricsFile = PrintWriter("metrics-homo-scaled.csv")
+        metricsFile.appendLine("cpuUsage(CPU usage of all CPUs of the host in MHz),energyUsage(Power usage of the host in W)")
+
+        repeat(HOST_COUNT) { computeHelper.registerHost(createHomogenousHostSpec(it)) }
+        // Configure the WorkflowService that is responsible for scheduling the workflow tasks onto machines
+        val workflowScheduler = WorkflowSchedulerSpec(
+            schedulingQuantum = Duration.ofMillis(100),
+            jobAdmissionPolicy = NullJobAdmissionPolicy,
+            jobOrderPolicy = ExecutionTimeJobOrderPolicy(),
+            taskEligibilityPolicy = NullTaskEligibilityPolicy,
+            taskOrderPolicy = ExecutionTimeTaskOderPolicy(),
+        )
+        val workflowHelper = WorkflowServiceHelper(coroutineContext, clock, computeHelper.service.newClient(), workflowScheduler)
+
+        val metricReader = CoroutineMetricReader(this, computeHelper.producers, object : ComputeMetricExporter(){
+            var energyUsage = 0.0
+            var cpuUsage = 0.0
+            //Makespan
+
+            override fun record(reader: HostTableReader){
+                cpuUsage = reader.cpuUsage
+                energyUsage = reader.powerUsage
+                if(cpuUsage != 0.0 && energyUsage != 0.0)
+                    metricsFile.appendLine("$cpuUsage,$energyUsage")
+            }
+        }, exportInterval = Duration.ofSeconds(10))
+
+        try {
+            val trace = Trace.open(
+                Paths.get(checkNotNull(WorkflowServiceTest::class.java.getResource("/askalon-new_ee11_parquet")).toURI()),
+                format = "wtf"
+            )
+
+            coroutineScope {
+                launch {workflowHelper.replay(trace.toJobs()) }
+
+                val impl = (workflowHelper.service as WorkflowServiceImpl)
+            }
+        } finally {
+            workflowHelper.close()
+            computeHelper.close()
+            metricReader.close()
+            metricsFile.close()
+        }
+
+        val metrics = collectMetrics(workflowHelper.metricProducer)
+        print(metrics)
+
+        assertAll(
+            { assertEquals(20, metrics.jobsSubmitted, "No jobs submitted") },
             { assertEquals(0, metrics.jobsActive, "Not all submitted jobs started") },
             { assertEquals(metrics.jobsSubmitted, metrics.jobsFinished, "Not all started jobs finished") },
             { assertEquals(0, metrics.tasksActive, "Not all started tasks finished") },
@@ -154,14 +339,32 @@ internal class WorkflowServiceTest {
         )
     }
 
+
     /**
      * Construct a [HostSpec] for a simulated host.
      */
-    private fun createHostSpec(uid: Int): HostSpec {
+    private fun createHomogenousHostSpec(uid: Int): HostSpec {
         // Machine model based on: https://www.spec.org/power_ssj2008/results/res2020q1/power_ssj2008-20191125-01012.html
-        val node = ProcessingNode("AMD", "am64", "EPYC 7742", 32)
-        val cpus = List(node.coreCount) { ProcessingUnit(node, it, Random.nextDouble(3400.0, 3600.0)) }
-        val memory = List(8) { MemoryUnit("Samsung", "Unknown", 2933.0, 16_000) }
+        val node = ProcessingNode("AMD", "am64", "EPYC 7742", 64)
+        val cpus = List(node.coreCount) { ProcessingUnit(node, it, 2450.0) }
+        val memory = List(16) { MemoryUnit("Samsung", "Unknown", 3200.0, 16_000) }
+
+        val machineModel = MachineModel(cpus, memory)
+
+        return HostSpec(
+            UUID(0, uid.toLong()),
+            "host-$uid",
+            emptyMap(),
+            machineModel,
+            SimplePowerDriver(LinearPowerModel(250.0, 50.0)),
+            SimSpaceSharedHypervisorProvider()
+        )
+    }
+    private fun createHomogenousHostSpec2(uid: Int): HostSpec {
+        // Machine model based on: https://www.spec.org/power_ssj2008/results/res2019q3/power_ssj2008-20190520-00966.html
+        val node = ProcessingNode("Intel", "am64", "Xeon Platinum 8280L", 56)
+        val cpus = List(node.coreCount) { ProcessingUnit(node, it, 2700.0) }
+        val memory = List(12) { MemoryUnit("Samsung", "Unknown", 3200.0, 16_000) }
 
         val machineModel = MachineModel(cpus, memory)
 
