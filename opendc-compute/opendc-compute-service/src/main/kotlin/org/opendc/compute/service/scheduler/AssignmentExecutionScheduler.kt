@@ -20,6 +20,7 @@ public class AssignmentExecutionScheduler : ComputeScheduler {
 
     override fun select(server: Server): HostView? {
         val (selectedHostId, selectedHostName) = server.meta["assigned-host"] as Pair<UUID, String>
-        return hosts.find { h -> h.host.uid == selectedHostId && h.host.name == selectedHostName }
+        val selectedHost = hosts.find { h -> h.host.uid == selectedHostId && h.host.name == selectedHostName }
+        return selectedHost ?: throw Exception("No host with name $selectedHostName")
     }
 }

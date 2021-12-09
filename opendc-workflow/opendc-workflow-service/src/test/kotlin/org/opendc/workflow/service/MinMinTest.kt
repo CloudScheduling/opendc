@@ -5,11 +5,6 @@ import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
 import org.opendc.compute.service.scheduler.AssignmentExecutionScheduler
-import org.opendc.compute.service.scheduler.FilterScheduler
-import org.opendc.compute.service.scheduler.filters.ComputeFilter
-import org.opendc.compute.service.scheduler.filters.RamFilter
-import org.opendc.compute.service.scheduler.filters.VCpuFilter
-import org.opendc.compute.service.scheduler.weights.VCpuWeigher
 import org.opendc.compute.workload.ComputeServiceHelper
 import org.opendc.compute.workload.topology.HostSpec
 import org.opendc.simulator.compute.kernel.SimSpaceSharedHypervisorProvider
@@ -28,8 +23,9 @@ import org.opendc.workflow.service.internal.JobState
 import org.opendc.workflow.service.internal.TaskState
 import org.opendc.workflow.service.scheduler.job.NullJobAdmissionPolicy
 import org.opendc.workflow.service.scheduler.job.SubmissionTimeJobOrderPolicy
-import org.opendc.workflow.service.scheduler.task.DependenciesFinishedTaskEligibilityPolicy
+import org.opendc.workflow.service.scheduler.task.TaskReadyEligibilityPolicy
 import org.opendc.workflow.service.scheduler.task.MinMinPolicy
+import org.opendc.workflow.service.scheduler.task.NullTaskEligibilityPolicy
 import org.opendc.workflow.workload.WorkflowSchedulerSpec
 import org.opendc.workflow.workload.WorkflowServiceHelper
 import org.opendc.workflow.workload.toJobs
@@ -268,7 +264,7 @@ class MinMinTest {
             schedulingQuantum = Duration.ofMillis(100),
             jobAdmissionPolicy = NullJobAdmissionPolicy,
             jobOrderPolicy = SubmissionTimeJobOrderPolicy(),
-            taskEligibilityPolicy = DependenciesFinishedTaskEligibilityPolicy(),
+            taskEligibilityPolicy = NullTaskEligibilityPolicy(),
             taskOrderPolicy = MinMinPolicy(hostSpecs),
         )
         val workflowHelper = WorkflowServiceHelper(coroutineContext, clock, computeHelper.service.newClient(), workflowScheduler)
@@ -286,6 +282,7 @@ class MinMinTest {
             computeHelper.close()
         }
 
+
         val metrics = collectMetrics(workflowHelper.metricProducer)
 
         assertAll(
@@ -293,7 +290,7 @@ class MinMinTest {
             { Assertions.assertEquals(0, metrics.jobsActive, "Not all submitted jobs started") },
             { Assertions.assertEquals(metrics.jobsSubmitted, metrics.jobsFinished, "Not all started jobs finished") },
             { Assertions.assertEquals(0, metrics.tasksActive, "Not all started tasks finished") },
-            { Assertions.assertEquals(4215, metrics.tasksSubmitted, "Not all tasks were submitted") },
+            { Assertions.assertEquals(3590, metrics.tasksSubmitted, "Not all tasks were submitted") },
             { Assertions.assertEquals(metrics.tasksSubmitted, metrics.tasksFinished, "Not all started tasks finished") }
         )
     }

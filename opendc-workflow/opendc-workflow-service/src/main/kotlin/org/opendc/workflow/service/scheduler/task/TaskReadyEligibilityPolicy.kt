@@ -4,13 +4,15 @@ import org.opendc.workflow.service.internal.TaskState
 import org.opendc.workflow.service.internal.TaskStatus
 import org.opendc.workflow.service.internal.WorkflowServiceImpl
 
-public class DependenciesFinishedTaskEligibilityPolicy : TaskEligibilityPolicy {
+public class TaskReadyEligibilityPolicy : TaskEligibilityPolicy {
     override fun invoke(scheduler: WorkflowServiceImpl): TaskEligibilityPolicy.Logic = object : TaskEligibilityPolicy.Logic {
         override fun invoke(task: TaskState): TaskEligibilityPolicy.Advice =
-            if (task.dependencies.all { it.state == TaskStatus.FINISHED })
+            if (task.state == TaskStatus.READY)
                 TaskEligibilityPolicy.Advice.ADMIT
-            else
+            else if (task.state == TaskStatus.CREATED)
                 TaskEligibilityPolicy.Advice.DENY
+            else
+                throw Exception("This branch should never be executed.")
     }
 
 }

@@ -387,6 +387,7 @@ public class WorkflowServiceImpl(
             ServerState.RUNNING -> {
                 val task = taskByServer.getValue(server)
                 task.startedAt = clock.millis()
+                task.task.metadata.put("startedAt", task.startedAt)
                 runningTasks.add(1)
                 rootListener.taskStarted(task)
             }
@@ -401,6 +402,7 @@ public class WorkflowServiceImpl(
                 val job = task.job
                 task.state = TaskStatus.FINISHED
                 task.finishedAt = clock.millis()
+                task.task.metadata.put("finishedAt", task.finishedAt)
                 job.tasks.remove(task)
                 activeTasks -= task
 

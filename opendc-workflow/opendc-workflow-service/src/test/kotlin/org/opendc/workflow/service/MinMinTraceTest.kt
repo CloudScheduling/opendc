@@ -24,17 +24,12 @@ package org.opendc.workflow.service
 
 import io.opentelemetry.sdk.metrics.export.MetricProducer
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
-import org.opendc.compute.service.scheduler.FilterScheduler
-import org.opendc.compute.service.scheduler.filters.ComputeFilter
-import org.opendc.compute.service.scheduler.filters.RamFilter
-import org.opendc.compute.service.scheduler.filters.VCpuFilter
-import org.opendc.compute.service.scheduler.weights.VCpuWeigher
+import org.opendc.compute.service.scheduler.AssignmentExecutionScheduler
 import org.opendc.compute.workload.ComputeServiceHelper
 import org.opendc.compute.workload.topology.HostSpec
 import org.opendc.simulator.compute.kernel.SimSpaceSharedHypervisorProvider
@@ -42,20 +37,18 @@ import org.opendc.simulator.compute.model.MachineModel
 import org.opendc.simulator.compute.model.MemoryUnit
 import org.opendc.simulator.compute.model.ProcessingNode
 import org.opendc.simulator.compute.model.ProcessingUnit
-import org.opendc.simulator.compute.power.ConstantPowerModel
 import org.opendc.simulator.compute.power.LinearPowerModel
 import org.opendc.simulator.compute.power.SimplePowerDriver
 import org.opendc.simulator.core.runBlockingSimulation
 import org.opendc.telemetry.compute.ComputeMetricExporter
 import org.opendc.telemetry.compute.table.HostTableReader
-import org.opendc.telemetry.compute.table.ServerTableReader
 import org.opendc.telemetry.sdk.metrics.export.CoroutineMetricReader
 import org.opendc.trace.Trace
 import org.opendc.workflow.service.internal.WorkflowServiceImpl
 import org.opendc.workflow.service.scheduler.job.NullJobAdmissionPolicy
 import org.opendc.workflow.service.scheduler.job.SubmissionTimeJobOrderPolicy
-import org.opendc.workflow.service.scheduler.task.NullTaskEligibilityPolicy
-import org.opendc.workflow.service.scheduler.task.SubmissionTimeTaskOrderPolicy
+import org.opendc.workflow.service.scheduler.task.TaskReadyEligibilityPolicy
+import org.opendc.workflow.service.scheduler.task.MinMinPolicy
 import org.opendc.workflow.workload.WorkflowSchedulerSpec
 import org.opendc.workflow.workload.WorkflowServiceHelper
 import org.opendc.workflow.workload.toJobs
@@ -67,8 +60,8 @@ import java.io.PrintWriter
 /**
  * Integration test suite for the [WorkflowService].
  */
-@DisplayName("WorkflowService")
-internal class WorkflowServiceTest {
+@DisplayName("MinMinTraceTest")
+internal class MinMinTraceTest {
     /**
      * A large integration test where we check whether all tasks in some trace are executed correctly.
      */
@@ -76,24 +69,26 @@ internal class WorkflowServiceTest {
     fun testTrace() = runBlockingSimulation {
         // Configure the ComputeService that is responsible for mapping virtual machines onto physical hosts
         val HOST_COUNT = 4
-        val computeScheduler = FilterScheduler(
-            filters = listOf(ComputeFilter(), VCpuFilter(1.0), RamFilter(1.0)),
-            weighers = listOf(VCpuWeigher(1.0, multiplier = 1.0))
-        )
+        val computeScheduler = AssignmentExecutionScheduler()
         val computeHelper = ComputeServiceHelper(coroutineContext, clock, computeScheduler, schedulingQuantum = Duration.ofSeconds(1))
 
         val metricsFile = PrintWriter("metrics.csv")
         metricsFile.appendLine("cpuUsage,cpuIdleTime,energyUsage")
 
-        repeat(HOST_COUNT) { computeHelper.registerHost(createHostSpec(it)) }
+        val hostSpecs = HashSet<HostSpec>()
+        repeat(HOST_COUNT) {
+            val hostSpec = createHostSpec(it)
+            computeHelper.registerHost(hostSpec)
+            hostSpecs.add(hostSpec)
+        }
 
         // Configure the WorkflowService that is responsible for scheduling the workflow tasks onto machines
         val workflowScheduler = WorkflowSchedulerSpec(
             schedulingQuantum = Duration.ofMillis(100),
             jobAdmissionPolicy = NullJobAdmissionPolicy,
             jobOrderPolicy = SubmissionTimeJobOrderPolicy(),
-            taskEligibilityPolicy = NullTaskEligibilityPolicy,
-            taskOrderPolicy = SubmissionTimeTaskOrderPolicy(),
+            taskEligibilityPolicy = TaskReadyEligibilityPolicy(),
+            taskOrderPolicy = MinMinPolicy(hostSpecs),
         )
         val workflowHelper = WorkflowServiceHelper(coroutineContext, clock, computeHelper.service.newClient(), workflowScheduler)
 
@@ -114,18 +109,20 @@ internal class WorkflowServiceTest {
 //                println()
 //            }
 
-        }, exportInterval = Duration.ofMinutes(5))
+        }, exportInterval = Duration.ofMinutes(1))
 
         try {
             val trace = Trace.open(
-                Paths.get(checkNotNull(WorkflowServiceTest::class.java.getResource("/askalon-new_ee10_parquet")).toURI()),
+                Paths.get(checkNotNull(MinMinTraceTest::class.java.getResource("/askalon-new_ee17_parquet")).toURI()),
                 format = "wtf"
-//                Paths.get(checkNotNull(WorkflowServiceTest::class.java.getResource("/trace.gwf")).toURI()),
-//                format = "gwf"
+                // Paths.get(checkNotNull(WorkflowServiceTest::class.java.getResource("/trace.gwf")).toURI()),
+                // format = "gwf"
             )
 
             coroutineScope {
-                launch {workflowHelper.replay(trace.toJobs()) }
+                val jobs = trace.toJobs()
+                // val jobs = trace.toJobs().take(300)
+                launch {workflowHelper.replay(jobs) }
 
 //                delay(10_000)
                 val impl = (workflowHelper.service as WorkflowServiceImpl)
@@ -141,10 +138,11 @@ internal class WorkflowServiceTest {
         val metrics = collectMetrics(workflowHelper.metricProducer)
 
         assertAll(
-            { assertEquals(758, metrics.jobsSubmitted, "No jobs submitted") },
+            { assertEquals(20, metrics.jobsSubmitted, "No jobs submitted") },
             { assertEquals(0, metrics.jobsActive, "Not all submitted jobs started") },
             { assertEquals(metrics.jobsSubmitted, metrics.jobsFinished, "Not all started jobs finished") },
             { assertEquals(0, metrics.tasksActive, "Not all started tasks finished") },
+            { assertEquals(20 * 91, metrics.tasksSubmitted, "Not all tasks have been submitted") },
             { assertEquals(metrics.tasksSubmitted, metrics.tasksFinished, "Not all started tasks finished") },
             { assertEquals(33214236L, clock.millis()) { "Total duration incorrect" } }
         )
