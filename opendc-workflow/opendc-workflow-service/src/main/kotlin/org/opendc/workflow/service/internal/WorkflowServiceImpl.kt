@@ -217,12 +217,14 @@ public class WorkflowServiceImpl(
      * there have to be hosts left and
      */
     private fun sufficientHostsLeft(jobState : JobState) : Boolean {
-        val hostsLeft = hosts.size - assignedHosts.size > 0
-        if (hostsLeft) {
+        val hostsLeft = hosts.size - assignedHosts.size
+        if (hostsLeft > 0) {
             // does it fit?
-            val lop = jobState.calculateLop()
             val availableCpus = hosts.filter { it.first !in assignedHosts }.sumOf { it.second }
-            return lop <= availableCpus
+
+            // corner case: if all hosts are available, we also make it a fit
+            // because LOP can be more than #CPUs ever available
+            return hostsLeft == hosts.size ||  jobState.lop <= availableCpus // requires lop to be run before calling of this fn -> is guaranteed
         }
         return false
     }
@@ -316,6 +318,9 @@ public class WorkflowServiceImpl(
         val iterator = incomingJobs.iterator()
         while (iterator.hasNext()) {
             val jobInstance = iterator.next()
+            // calculate LOP
+            jobInstance.calculateLop()
+
             jobInstance.metadata["sufficientHostsLeft"] = sufficientHostsLeft(jobInstance)
             val advice = jobAdmissionPolicy(jobInstance)
             if (advice.stop) {
@@ -323,6 +328,10 @@ public class WorkflowServiceImpl(
             } else if (!advice.admit) {
                 continue
             }
+
+            val hostsForJob = getChoices(jobInstance)
+            assignedHosts.addAll(hostsForJob)
+            jobHostMapping[jobInstance] = hostsForJob
 
             iterator.remove()
             jobQueue.add(jobInstance)
@@ -334,42 +343,12 @@ public class WorkflowServiceImpl(
 
         // J4 Per job
         while (true) {
-            // TODO: here the job must be extended using an extend policy
             val jobInstance = jobQueue.poll() ?: break
 
             // Edge-case: job has no tasks
             if (jobInstance.isFinished) {
                 finishJob(jobInstance)
             }
-
-            // calculate LOP
-            jobInstance.calculateLop()
-            // assign enough resources to fit -> sort by no of cpu cores
-            // select fitting as long as there are cores missing
-            val hostsSet = hosts.toMutableSet() // second = cpuCount TODO: remove assignedHosts.add(host)
-            hostsSet.removeIf { x -> x.first in assignedHosts }
-            val hostsListSorted = hostsSet.toList().sortedBy { it.second }
-            var lopLeft = jobInstance.lop
-            val choices = HashSet<UUID>()
-            if (hostsListSorted.isEmpty()) throw Exception("No hosts available")
-            // TODO: could be optimized by binary search -> n^2 to n log n
-            while (lopLeft > 0) {
-                for ((i, host) in hostsListSorted.withIndex()) {
-                    val cpuCount = host.second
-                    val uuid = host.first
-                    val firstMatch = lopLeft >= cpuCount
-                    val lastHost = i == hostsSet.size - 1 // cannot fit a single instance -> fill up with multiple machines
-                    if (firstMatch || lastHost) {
-                        choices.add(uuid)
-                        lopLeft -= cpuCount
-                        choices.add(uuid)
-                        hostsListSorted.drop(i)
-                        assignedHosts.add(host.first)
-                    }
-                }
-            }
-            print("Chose the following: $choices")
-            jobHostMapping[jobInstance] = choices
 
             //compute
             // Add job roots to the scheduling queue
@@ -431,6 +410,36 @@ public class WorkflowServiceImpl(
             taskQueue.poll()
             rootListener.taskAssigned(instance)
         }
+    }
+
+    /**
+     * @return hosts assigned for job
+     */
+    private fun getChoices(jobInstance : JobState): HashSet<UUID> {
+        // assign enough resources to fit -> sort by no of cpu cores
+        // select fitting as long as there are cores missing
+        val hostsSet = hosts.toMutableSet() // second = cpuCount
+        hostsSet.removeIf { x -> x.first in assignedHosts }
+        val hostsListSorted = hostsSet.toList().sortedBy { it.second }
+        var lopLeft = jobInstance.lop
+        val choices = HashSet<UUID>()
+        if (hostsListSorted.isEmpty()) throw Exception("No hosts available")
+
+        // TODO: could be optimized by binary search -> n^2 to n log n
+        while (lopLeft > 0 && hostsListSorted.isNotEmpty()) {
+            for ((i, host) in hostsListSorted.withIndex()) {
+                val cpuCount = host.second
+                val uuid = host.first
+                val firstMatch = lopLeft >= cpuCount
+                val lastHost = i == hostsSet.size - 1 // cannot fit a single instance -> fill up with multiple machines
+                if (firstMatch || lastHost) {
+                    choices.add(uuid)
+                    lopLeft -= cpuCount
+                    hostsListSorted.drop(i)
+                }
+            }
+        }
+        return choices
     }
 
     override fun onStateChanged(server: Server, newState: ServerState) {

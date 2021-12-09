@@ -111,7 +111,7 @@ internal class ElopTest {
                 energyUsage = reader.powerUsage
                 metricsFile.appendLine(" $cpuUsage,$cpuIdleTime,$energyUsage")
             }
-        }, exportInterval = Duration.ofSeconds(1))
+        }, exportInterval = Duration.ofMinutes(5))
 
         return Pair(metricReader, metricsFile)
     }
@@ -119,10 +119,10 @@ internal class ElopTest {
     private suspend fun runTrace(workflowHelper : WorkflowServiceHelper, computeHelper : ComputeServiceHelper, metricReader: CoroutineMetricReader, metricsFile : PrintWriter) {
         try {
             val trace = Trace.open(
-                Paths.get(checkNotNull(ElopTest::class.java.getResource("/askalon-new_ee10_parquet")).toURI()),
+                //Paths.get(checkNotNull(ElopTest::class.java.getResource("/trace.gwf")).toURI()),
+                //format = "gwf"
+                Paths.get(checkNotNull(ElopTest::class.java.getResource("/Pegasus_P5_parquet")).toURI()),
                 format = "wtf"
-                //Paths.get(checkNotNull(ElopTest::class.java.getResource("/askalon_ee2_parquet")).toURI()),
-                //format = "wtf"
             )
             val jobs = trace.toJobs()
             workflowHelper.replay(jobs)
@@ -135,7 +135,7 @@ internal class ElopTest {
     }
 
     private fun setupEnvironment(coroutineContext : CoroutineContext, clock : Clock): HelperWrapper {
-        val HOST_COUNT = 10
+        val HOST_COUNT = 4
         val jobHostMapping = HashMap<JobState, Set<UUID>>()
 
         val computeScheduler = FilterScheduler(
@@ -184,7 +184,7 @@ internal class ElopTest {
     private fun createHostSpec(uid: Int): HostSpec {
         // Machine model based on: https://www.spec.org/power_ssj2008/results/res2020q1/power_ssj2008-20191125-01012.html
         val node = ProcessingNode("AMD", "am64", "EPYC 7742", 32)
-        val cpus = List(node.coreCount) { ProcessingUnit(node, it, 400.0) } // was: 3400
+        val cpus = List(node.coreCount) { ProcessingUnit(node, it, 3400.0) } // was: 3400
         val memory =
             List(8) { MemoryUnit("Samsung", "Unknown", 2933.0, 16_000) }
 
