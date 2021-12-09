@@ -264,7 +264,7 @@ class MinMinTest {
             schedulingQuantum = Duration.ofMillis(100),
             jobAdmissionPolicy = NullJobAdmissionPolicy,
             jobOrderPolicy = SubmissionTimeJobOrderPolicy(),
-            taskEligibilityPolicy = NullTaskEligibilityPolicy(),
+            taskEligibilityPolicy = NullTaskEligibilityPolicy,
             taskOrderPolicy = MinMinPolicy(hostSpecs),
         )
         val workflowHelper = WorkflowServiceHelper(coroutineContext, clock, computeHelper.service.newClient(), workflowScheduler)
