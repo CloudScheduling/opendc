@@ -67,8 +67,16 @@ internal class WorkflowServiceTest {
     /**
      * A large integration test where we check whether all tasks in some trace are executed correctly.
      */
+
+    fun main(args: Array<String>) {
+        testTraceHomoUnscaled()
+        testTraceHeteroUnscaled()
+        testTraceHeteroScaled()
+        testTraceHomoScaled()
+    }
+
     @Test
-    fun testTrace() = runBlockingSimulation {
+    fun testTraceHomoUnscaled() = runBlockingSimulation {
         // Configure the ComputeService that is responsible for mapping virtual machines onto physical hosts
         val HOST_COUNT = 4
         val computeScheduler = FilterScheduler(
@@ -124,11 +132,15 @@ internal class WorkflowServiceTest {
                 val jobs = trace.toJobs()
                 workflowHelper.replay(jobs) // Wait for all jobs to be executed completely
                 val makespans = jobs.map { (it.tasks.maxOf { t -> t.metadata["finishedAt"] as Long } - it.tasks.minOf {t -> t.metadata["startedAt"] as Long }) / 1000}
-                val completedTasksOverTime : MutableList<Int> = mutableListOf()
+                val completedTasksOverTime : MutableList<Double> = mutableListOf()
                 for(job in jobs){
                     for(task in job.tasks){
+                        val result = when((task.metadata["finishedAt"] as Long - task.metadata["startedAt"]  as Long) < 1000){
+                            false -> (task.metadata["finishedAt"] as Long - task.metadata["startedAt"]  as Long) / 1000
+                            true -> (task.metadata["finishedAt"] as Long - task.metadata["startedAt"]  as Long) / 1000.0
+                        }
                         completedTasksOverTime.add(completedTasksOverTime.size,
-                            ((task.metadata["finishedAt"] as Long - task.metadata["startedAt"]  as Long) / 1000).toInt()
+                            (result).toDouble()
                         )
                     }
                 }
@@ -163,7 +175,7 @@ internal class WorkflowServiceTest {
         )
     }
     @Test
-    fun testTraceHetero() = runBlockingSimulation {
+    fun testTraceHeteroUnscaled() = runBlockingSimulation {
         // Configure the ComputeService that is responsible for mapping virtual machines onto physical hosts
         val HOST_COUNT = 4
         val computeScheduler = FilterScheduler(
@@ -215,7 +227,25 @@ internal class WorkflowServiceTest {
                 val jobs = trace.toJobs()
                 workflowHelper.replay(jobs) // Wait for all jobs to be executed completely
                 val makespans = jobs.map { it.tasks.maxOf { t -> t.metadata["finishedAt"] as Long } - it.tasks.minOf {t -> t.metadata["startedAt"] as Long } }
-                println(makespans)
+                val completedTasksOverTime : MutableList<Double> = mutableListOf()
+                for(job in jobs){
+                    for(task in job.tasks){
+                        val result = when((task.metadata["finishedAt"] as Long - task.metadata["startedAt"]  as Long) < 1000){
+                            false -> (task.metadata["finishedAt"] as Long - task.metadata["startedAt"]  as Long) / 1000
+                            true -> (task.metadata["finishedAt"] as Long - task.metadata["startedAt"]  as Long) / 1000.0
+                        }
+                        completedTasksOverTime.add(completedTasksOverTime.size,
+                            result.toDouble()
+                        )
+                    }
+                }
+
+                for(span in makespans){
+                    makespanFile.appendLine("$span")
+                }
+                for ((key, value) in completedTasksOverTime.groupingBy { it }.eachCount().filter { it.value >= 1 }.entries){
+                    tasksOverTimeFile.appendLine("$key,$value")
+                }
             }
         } finally {
             workflowHelper.close()
@@ -292,7 +322,25 @@ internal class WorkflowServiceTest {
                 val jobs = trace.toJobs()
                 workflowHelper.replay(jobs) // Wait for all jobs to be executed completely
                 val makespans = jobs.map { it.tasks.maxOf { t -> t.metadata["finishedAt"] as Long } - it.tasks.minOf {t -> t.metadata["startedAt"] as Long } }
-                println(makespans)
+                val completedTasksOverTime : MutableList<Double> = mutableListOf()
+                for(job in jobs){
+                    for(task in job.tasks){
+                        val result = when((task.metadata["finishedAt"] as Long - task.metadata["startedAt"]  as Long) < 1000){
+                            false -> (task.metadata["finishedAt"] as Long - task.metadata["startedAt"]  as Long) / 1000
+                            true -> (task.metadata["finishedAt"] as Long - task.metadata["startedAt"]  as Long) / 1000.0
+                        }
+                        completedTasksOverTime.add(completedTasksOverTime.size,
+                            result.toDouble()
+                        )
+                    }
+                }
+
+                for(span in makespans){
+                    makespanFile.appendLine("$span")
+                }
+                for ((key, value) in completedTasksOverTime.groupingBy { it }.eachCount().filter { it.value >= 1 }.entries){
+                    tasksOverTimeFile.appendLine("$key,$value")
+                }
             }
         } finally {
             workflowHelper.close()
@@ -367,7 +415,25 @@ internal class WorkflowServiceTest {
                 val jobs = trace.toJobs()
                 workflowHelper.replay(jobs) // Wait for all jobs to be executed completely
                 val makespans = jobs.map { it.tasks.maxOf { t -> t.metadata["finishedAt"] as Long } - it.tasks.minOf {t -> t.metadata["startedAt"] as Long } }
-                println(makespans)
+                val completedTasksOverTime : MutableList<Double> = mutableListOf()
+                for(job in jobs){
+                    for(task in job.tasks){
+                        val result = when((task.metadata["finishedAt"] as Long - task.metadata["startedAt"]  as Long) < 1000){
+                            false -> (task.metadata["finishedAt"] as Long - task.metadata["startedAt"]  as Long) / 1000
+                            true -> (task.metadata["finishedAt"] as Long - task.metadata["startedAt"]  as Long) / 1000.0
+                        }
+                        completedTasksOverTime.add(completedTasksOverTime.size,
+                            result.toDouble()
+                        )
+                    }
+                }
+
+                for(span in makespans){
+                    makespanFile.appendLine("$span")
+                }
+                for ((key, value) in completedTasksOverTime.groupingBy { it }.eachCount().filter { it.value >= 1 }.entries){
+                    tasksOverTimeFile.appendLine("$key,$value")
+                }
             }
         } finally {
             workflowHelper.close()
