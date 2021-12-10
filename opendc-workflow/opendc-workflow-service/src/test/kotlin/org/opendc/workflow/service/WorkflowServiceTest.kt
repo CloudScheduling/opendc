@@ -24,7 +24,6 @@ package org.opendc.workflow.service
 
 import io.opentelemetry.sdk.metrics.export.MetricProducer
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -48,7 +47,6 @@ import org.opendc.telemetry.compute.ComputeMetricExporter
 import org.opendc.telemetry.compute.table.HostTableReader
 import org.opendc.telemetry.sdk.metrics.export.CoroutineMetricReader
 import org.opendc.trace.Trace
-import org.opendc.workflow.service.internal.WorkflowServiceImpl
 import org.opendc.workflow.service.scheduler.job.ExecutionTimeJobOrderPolicy
 import org.opendc.workflow.service.scheduler.job.NullJobAdmissionPolicy
 import org.opendc.workflow.service.scheduler.task.ExecutionTimeTaskOderPolicy
@@ -79,8 +77,13 @@ internal class WorkflowServiceTest {
         )
         val computeHelper = ComputeServiceHelper(coroutineContext, clock, computeScheduler, schedulingQuantum = Duration.ofSeconds(1))
 
-        val metricsFile = PrintWriter("metrics-homo-unscaled.csv")
-        metricsFile.appendLine("cpuUsage(CPU usage of all CPUs of the host in MHz),energyUsage(Power usage of the host in W)")
+        val metricsFile = PrintWriter("C:/scul/maxmin-metrics-homo-unscaled.csv")
+        val makespanFile = PrintWriter("C:/scul/maxmin-makespan-homo-unscaled.csv")
+        val tasksOverTimeFile = PrintWriter("C:/scul/maxmin-tasksOverTime-homo-unscaled.csv")
+        metricsFile.appendLine("No# Tasks running,cpuUsage(CPU usage of all CPUs of the host in MHz),energyUsage(Power usage of the host in W)")
+        makespanFile.appendLine("Makespan(s)")
+        tasksOverTimeFile.appendLine("Time(s),#Tasks")
+
 
         repeat(HOST_COUNT) { computeHelper.registerHost(createHomogenousHostSpec(it)) }
         // Configure the WorkflowService that is responsible for scheduling the workflow tasks onto machines
@@ -101,29 +104,53 @@ internal class WorkflowServiceTest {
             override fun record(reader: HostTableReader){
                 cpuUsage = reader.cpuUsage
                 energyUsage = reader.powerUsage
-                if(cpuUsage != 0.0 && energyUsage != 0.0)
-                metricsFile.appendLine("$cpuUsage,$energyUsage")
+                if(cpuUsage != 0.0 && energyUsage != 0.0){
+                    metricsFile.appendLine("${reader.guestsRunning},$cpuUsage,$energyUsage")
+                    println("${reader.guestsRunning},$cpuUsage,$energyUsage")
+                }
             }
-        }, exportInterval = Duration.ofSeconds(10))
+        }, exportInterval = Duration.ofSeconds(1))
 
         try {
             val trace = Trace.open(
                 Paths.get(checkNotNull(WorkflowServiceTest::class.java.getResource("/askalon-new_ee11_parquet")).toURI()),
+//                Paths.get(checkNotNull(WorkflowServiceTest::class.java.getResource("/spec_trace-2_parquet")).toURI()),
+//                Paths.get(checkNotNull(WorkflowServiceTest::class.java.getResource("/askalon-new_ee17_parquet")).toURI()),
                 format = "wtf"
             )
 
             coroutineScope {
-                launch {workflowHelper.replay(trace.toJobs()) }
 
-                val impl = (workflowHelper.service as WorkflowServiceImpl)
+                val jobs = trace.toJobs()
+                workflowHelper.replay(jobs) // Wait for all jobs to be executed completely
+                val makespans = jobs.map { (it.tasks.maxOf { t -> t.metadata["finishedAt"] as Long } - it.tasks.minOf {t -> t.metadata["startedAt"] as Long }) / 1000}
+                val completedTasksOverTime : MutableList<Int> = mutableListOf()
+                for(job in jobs){
+                    for(task in job.tasks){
+                        completedTasksOverTime.add(completedTasksOverTime.size,
+                            ((task.metadata["finishedAt"] as Long - task.metadata["startedAt"]  as Long) / 1000).toInt()
+                        )
+                    }
+                }
+
+                for(span in makespans){
+                    makespanFile.appendLine("$span")
+                }
+                for ((key, value) in completedTasksOverTime.groupingBy { it }.eachCount().filter { it.value >= 1 }.entries){
+                    tasksOverTimeFile.appendLine("$key,$value")
+                }
             }
         } finally {
             workflowHelper.close()
             computeHelper.close()
             metricReader.close()
             metricsFile.close()
+            makespanFile.close()
+            tasksOverTimeFile.close()
         }
+        val path = System.getProperty("user.dir")
 
+        println("Working Directory = $path")
         val metrics = collectMetrics(workflowHelper.metricProducer)
         print(metrics)
 
@@ -145,8 +172,12 @@ internal class WorkflowServiceTest {
         )
         val computeHelper = ComputeServiceHelper(coroutineContext, clock, computeScheduler, schedulingQuantum = Duration.ofSeconds(1))
 
-        val metricsFile = PrintWriter("metrics-hetero-unscaled.csv")
-        metricsFile.appendLine("cpuUsage(CPU usage of all CPUs of the host in MHz),energyUsage(Power usage of the host in W)")
+        val metricsFile = PrintWriter("C:/scul/maxmin-metrics-hetero-unscaled.csv")
+        val makespanFile = PrintWriter("C:/scul/maxmin-makespan-hetero-unscaled.csv")
+        val tasksOverTimeFile = PrintWriter("C:/scul/maxmin-tasksOverTime-hetero-unscaled.csv")
+        metricsFile.appendLine("No# Tasks running,cpuUsage(CPU usage of all CPUs of the host in MHz),energyUsage(Power usage of the host in W)")
+        makespanFile.appendLine("Makespan(s)")
+        tasksOverTimeFile.appendLine("Time(s),#Tasks")
 
         repeat(HOST_COUNT/2) { computeHelper.registerHost(createHomogenousHostSpec(it)) }
         repeat(HOST_COUNT/2) { computeHelper.registerHost(createHomogenousHostSpec2(it)) }
@@ -169,7 +200,7 @@ internal class WorkflowServiceTest {
                 cpuUsage = reader.cpuUsage
                 energyUsage = reader.powerUsage
                 if(cpuUsage != 0.0 && energyUsage != 0.0)
-                    metricsFile.appendLine("$cpuUsage,$energyUsage")
+                    metricsFile.appendLine("${reader.guestsRunning},$cpuUsage,$energyUsage")
             }
         }, exportInterval = Duration.ofSeconds(10))
 
@@ -180,15 +211,19 @@ internal class WorkflowServiceTest {
             )
 
             coroutineScope {
-                launch {workflowHelper.replay(trace.toJobs()) }
 
-                val impl = (workflowHelper.service as WorkflowServiceImpl)
+                val jobs = trace.toJobs()
+                workflowHelper.replay(jobs) // Wait for all jobs to be executed completely
+                val makespans = jobs.map { it.tasks.maxOf { t -> t.metadata["finishedAt"] as Long } - it.tasks.minOf {t -> t.metadata["startedAt"] as Long } }
+                println(makespans)
             }
         } finally {
             workflowHelper.close()
             computeHelper.close()
             metricReader.close()
             metricsFile.close()
+            makespanFile.close()
+            tasksOverTimeFile.close()
         }
 
         val metrics = collectMetrics(workflowHelper.metricProducer)
@@ -213,8 +248,12 @@ internal class WorkflowServiceTest {
         )
         val computeHelper = ComputeServiceHelper(coroutineContext, clock, computeScheduler, schedulingQuantum = Duration.ofSeconds(1))
 
-        val metricsFile = PrintWriter("metrics-hetero-scaled.csv")
-        metricsFile.appendLine("cpuUsage(CPU usage of all CPUs of the host in MHz),energyUsage(Power usage of the host in W)")
+        val metricsFile = PrintWriter("C:/scul/maxmin-metrics-homo-scaled.csv")
+        val makespanFile = PrintWriter("C:/scul/maxmin-makespan-homo-scaled.csv")
+        val tasksOverTimeFile = PrintWriter("C:/scul/maxmin-tasksOverTime-homo-scaled.csv")
+        metricsFile.appendLine("No# Tasks running,cpuUsage(CPU usage of all CPUs of the host in MHz),energyUsage(Power usage of the host in W)")
+        makespanFile.appendLine("Makespan(s)")
+        tasksOverTimeFile.appendLine("Time(s),#Tasks")
 
         repeat(HOST_COUNT/2) { computeHelper.registerHost(createHomogenousHostSpec(it)) }
         repeat(HOST_COUNT/2) { computeHelper.registerHost(createHomogenousHostSpec2(it)) }
@@ -237,7 +276,7 @@ internal class WorkflowServiceTest {
                 cpuUsage = reader.cpuUsage
                 energyUsage = reader.powerUsage
                 if(cpuUsage != 0.0 && energyUsage != 0.0)
-                    metricsFile.appendLine("$cpuUsage,$energyUsage")
+                    metricsFile.appendLine("${reader.guestsRunning},$cpuUsage,$energyUsage")
             }
         }, exportInterval = Duration.ofSeconds(10))
 
@@ -247,16 +286,21 @@ internal class WorkflowServiceTest {
                 format = "wtf"
             )
 
-            coroutineScope {
-                launch {workflowHelper.replay(trace.toJobs()) }
 
-                val impl = (workflowHelper.service as WorkflowServiceImpl)
+            coroutineScope {
+
+                val jobs = trace.toJobs()
+                workflowHelper.replay(jobs) // Wait for all jobs to be executed completely
+                val makespans = jobs.map { it.tasks.maxOf { t -> t.metadata["finishedAt"] as Long } - it.tasks.minOf {t -> t.metadata["startedAt"] as Long } }
+                println(makespans)
             }
         } finally {
             workflowHelper.close()
             computeHelper.close()
             metricReader.close()
             metricsFile.close()
+            makespanFile.close()
+            tasksOverTimeFile.close()
         }
 
         val metrics = collectMetrics(workflowHelper.metricProducer)
@@ -281,8 +325,12 @@ internal class WorkflowServiceTest {
         )
         val computeHelper = ComputeServiceHelper(coroutineContext, clock, computeScheduler, schedulingQuantum = Duration.ofSeconds(1))
 
-        val metricsFile = PrintWriter("metrics-homo-scaled.csv")
-        metricsFile.appendLine("cpuUsage(CPU usage of all CPUs of the host in MHz),energyUsage(Power usage of the host in W)")
+        val metricsFile = PrintWriter("C:/scul/maxmin-metrics-hetero-scaled.csv")
+        val makespanFile = PrintWriter("C:/scul/maxmin-makespan-hetero-scaled.csv")
+        val tasksOverTimeFile = PrintWriter("C:/scul/maxmin-tasksOverTime-hetero-scaled.csv")
+        metricsFile.appendLine("No# Tasks running,cpuUsage(CPU usage of all CPUs of the host in MHz),energyUsage(Power usage of the host in W)")
+        makespanFile.appendLine("Makespan(s)")
+        tasksOverTimeFile.appendLine("Time(s),#Tasks")
 
         repeat(HOST_COUNT) { computeHelper.registerHost(createHomogenousHostSpec(it)) }
         // Configure the WorkflowService that is responsible for scheduling the workflow tasks onto machines
@@ -304,7 +352,7 @@ internal class WorkflowServiceTest {
                 cpuUsage = reader.cpuUsage
                 energyUsage = reader.powerUsage
                 if(cpuUsage != 0.0 && energyUsage != 0.0)
-                    metricsFile.appendLine("$cpuUsage,$energyUsage")
+                    metricsFile.appendLine("${reader.guestsRunning},$cpuUsage,$energyUsage")
             }
         }, exportInterval = Duration.ofSeconds(10))
 
@@ -315,15 +363,19 @@ internal class WorkflowServiceTest {
             )
 
             coroutineScope {
-                launch {workflowHelper.replay(trace.toJobs()) }
 
-                val impl = (workflowHelper.service as WorkflowServiceImpl)
+                val jobs = trace.toJobs()
+                workflowHelper.replay(jobs) // Wait for all jobs to be executed completely
+                val makespans = jobs.map { it.tasks.maxOf { t -> t.metadata["finishedAt"] as Long } - it.tasks.minOf {t -> t.metadata["startedAt"] as Long } }
+                println(makespans)
             }
         } finally {
             workflowHelper.close()
             computeHelper.close()
             metricReader.close()
             metricsFile.close()
+            makespanFile.close()
+            tasksOverTimeFile.close()
         }
 
         val metrics = collectMetrics(workflowHelper.metricProducer)
