@@ -89,8 +89,8 @@ internal class WorkflowServiceTest {
         val makespanFile = PrintWriter("C:/scul/maxmin-makespan-homo-unscaled.csv")
         val tasksOverTimeFile = PrintWriter("C:/scul/maxmin-tasksOverTime-homo-unscaled.csv")
         metricsFile.appendLine("No# Tasks running,cpuUsage(CPU usage of all CPUs of the host in MHz),energyUsage(Power usage of the host in W)")
-        makespanFile.appendLine("Makespan(s)")
-        tasksOverTimeFile.appendLine("Time(s),#Tasks")
+        makespanFile.appendLine("Makespan (s),Workflow Response time (s)")
+        tasksOverTimeFile.appendLine("Time (s),Tasks #")
 
 
         repeat(HOST_COUNT) { computeHelper.registerHost(createHomogenousHostSpec(it)) }
@@ -114,15 +114,15 @@ internal class WorkflowServiceTest {
                 energyUsage = reader.powerUsage
                 if(cpuUsage != 0.0 && energyUsage != 0.0){
                     metricsFile.appendLine("${reader.guestsRunning},$cpuUsage,$energyUsage")
-                    println("${reader.guestsRunning},$cpuUsage,$energyUsage")
+//                    println("${reader.guestsRunning},$cpuUsage,$energyUsage")
                 }
             }
-        }, exportInterval = Duration.ofSeconds(1))
+        }, exportInterval = Duration.ofMinutes(1))
 
         try {
             val trace = Trace.open(
-                Paths.get(checkNotNull(WorkflowServiceTest::class.java.getResource("/askalon-new_ee11_parquet")).toURI()),
-//                Paths.get(checkNotNull(WorkflowServiceTest::class.java.getResource("/spec_trace-2_parquet")).toURI()),
+//                Paths.get(checkNotNull(WorkflowServiceTest::class.java.getResource("/askalon-new_ee11_parquet")).toURI()),
+                Paths.get(checkNotNull(WorkflowServiceTest::class.java.getResource("/spec_trace-2_parquet")).toURI()),
 //                Paths.get(checkNotNull(WorkflowServiceTest::class.java.getResource("/askalon-new_ee17_parquet")).toURI()),
                 format = "wtf"
             )
@@ -132,7 +132,9 @@ internal class WorkflowServiceTest {
                 val jobs = trace.toJobs()
                 workflowHelper.replay(jobs) // Wait for all jobs to be executed completely
                 val makespans = jobs.map { (it.tasks.maxOf { t -> t.metadata["finishedAt"] as Long } - it.tasks.minOf {t -> t.metadata["startedAt"] as Long }) / 1000}
+
                 val completedTasksOverTime : MutableList<Double> = mutableListOf()
+                val workflowWaitTime : MutableList<Double> = mutableListOf()
                 for(job in jobs){
                     for(task in job.tasks){
                         val result = when((task.metadata["finishedAt"] as Long - task.metadata["startedAt"]  as Long) < 1000){
@@ -142,11 +144,18 @@ internal class WorkflowServiceTest {
                         completedTasksOverTime.add(completedTasksOverTime.size,
                             (result).toDouble()
                         )
+                        val waitTime = task.metadata["jobWaitTime"] as Long?
+                        if(waitTime != null){
+                            workflowWaitTime.add(workflowWaitTime.size,
+                                (waitTime / 1000.0).toDouble())
+                        }
                     }
                 }
+                val workflowResponseTime = (0 until workflowWaitTime.size).map { workflowWaitTime[it] + makespans[it] }
 
-                for(span in makespans){
-                    makespanFile.appendLine("$span")
+                (0 until workflowWaitTime.size).map{
+                    makespanFile.appendLine("${makespans[it]},${kotlin.math.round(workflowResponseTime[it])}")
+
                 }
                 for ((key, value) in completedTasksOverTime.groupingBy { it }.eachCount().filter { it.value >= 1 }.entries){
                     tasksOverTimeFile.appendLine("$key,$value")
@@ -188,8 +197,8 @@ internal class WorkflowServiceTest {
         val makespanFile = PrintWriter("C:/scul/maxmin-makespan-hetero-unscaled.csv")
         val tasksOverTimeFile = PrintWriter("C:/scul/maxmin-tasksOverTime-hetero-unscaled.csv")
         metricsFile.appendLine("No# Tasks running,cpuUsage(CPU usage of all CPUs of the host in MHz),energyUsage(Power usage of the host in W)")
-        makespanFile.appendLine("Makespan(s)")
-        tasksOverTimeFile.appendLine("Time(s),#Tasks")
+        makespanFile.appendLine("Makespan (s),Workflow Response time (s)")
+        tasksOverTimeFile.appendLine("Time (s),Tasks #")
 
         repeat(HOST_COUNT/2) { computeHelper.registerHost(createHomogenousHostSpec(it)) }
         repeat(HOST_COUNT/2) { computeHelper.registerHost(createHomogenousHostSpec2(it)) }
@@ -228,6 +237,7 @@ internal class WorkflowServiceTest {
                 workflowHelper.replay(jobs) // Wait for all jobs to be executed completely
                 val makespans = jobs.map { it.tasks.maxOf { t -> t.metadata["finishedAt"] as Long } - it.tasks.minOf {t -> t.metadata["startedAt"] as Long } }
                 val completedTasksOverTime : MutableList<Double> = mutableListOf()
+                val workflowWaitTime : MutableList<Double> = mutableListOf()
                 for(job in jobs){
                     for(task in job.tasks){
                         val result = when((task.metadata["finishedAt"] as Long - task.metadata["startedAt"]  as Long) < 1000){
@@ -235,13 +245,20 @@ internal class WorkflowServiceTest {
                             true -> (task.metadata["finishedAt"] as Long - task.metadata["startedAt"]  as Long) / 1000.0
                         }
                         completedTasksOverTime.add(completedTasksOverTime.size,
-                            result.toDouble()
+                            (result).toDouble()
                         )
+                        val waitTime = task.metadata["jobWaitTime"] as Long?
+                        if(waitTime != null){
+                            workflowWaitTime.add(workflowWaitTime.size,
+                                (waitTime / 1000.0).toDouble())
+                        }
                     }
                 }
+                val workflowResponseTime = (0 until workflowWaitTime.size).map { workflowWaitTime[it] + makespans[it] }
 
-                for(span in makespans){
-                    makespanFile.appendLine("$span")
+                (0 until workflowWaitTime.size).map{
+                    makespanFile.appendLine("${makespans[it]},${kotlin.math.round(workflowResponseTime[it])}")
+
                 }
                 for ((key, value) in completedTasksOverTime.groupingBy { it }.eachCount().filter { it.value >= 1 }.entries){
                     tasksOverTimeFile.appendLine("$key,$value")
@@ -282,8 +299,8 @@ internal class WorkflowServiceTest {
         val makespanFile = PrintWriter("C:/scul/maxmin-makespan-homo-scaled.csv")
         val tasksOverTimeFile = PrintWriter("C:/scul/maxmin-tasksOverTime-homo-scaled.csv")
         metricsFile.appendLine("No# Tasks running,cpuUsage(CPU usage of all CPUs of the host in MHz),energyUsage(Power usage of the host in W)")
-        makespanFile.appendLine("Makespan(s)")
-        tasksOverTimeFile.appendLine("Time(s),#Tasks")
+        makespanFile.appendLine("Makespan (s),Workflow Response time (s)")
+        tasksOverTimeFile.appendLine("Time (s),Tasks #")
 
         repeat(HOST_COUNT/2) { computeHelper.registerHost(createHomogenousHostSpec(it)) }
         repeat(HOST_COUNT/2) { computeHelper.registerHost(createHomogenousHostSpec2(it)) }
@@ -323,6 +340,7 @@ internal class WorkflowServiceTest {
                 workflowHelper.replay(jobs) // Wait for all jobs to be executed completely
                 val makespans = jobs.map { it.tasks.maxOf { t -> t.metadata["finishedAt"] as Long } - it.tasks.minOf {t -> t.metadata["startedAt"] as Long } }
                 val completedTasksOverTime : MutableList<Double> = mutableListOf()
+                val workflowWaitTime : MutableList<Double> = mutableListOf()
                 for(job in jobs){
                     for(task in job.tasks){
                         val result = when((task.metadata["finishedAt"] as Long - task.metadata["startedAt"]  as Long) < 1000){
@@ -330,13 +348,20 @@ internal class WorkflowServiceTest {
                             true -> (task.metadata["finishedAt"] as Long - task.metadata["startedAt"]  as Long) / 1000.0
                         }
                         completedTasksOverTime.add(completedTasksOverTime.size,
-                            result.toDouble()
+                            (result).toDouble()
                         )
+                        val waitTime = task.metadata["jobWaitTime"] as Long?
+                        if(waitTime != null){
+                            workflowWaitTime.add(workflowWaitTime.size,
+                                (waitTime / 1000.0).toDouble())
+                        }
                     }
                 }
+                val workflowResponseTime = (0 until workflowWaitTime.size).map { workflowWaitTime[it] + makespans[it] }
 
-                for(span in makespans){
-                    makespanFile.appendLine("$span")
+                (0 until workflowWaitTime.size).map{
+                    makespanFile.appendLine("${makespans[it]},${kotlin.math.round(workflowResponseTime[it])}")
+
                 }
                 for ((key, value) in completedTasksOverTime.groupingBy { it }.eachCount().filter { it.value >= 1 }.entries){
                     tasksOverTimeFile.appendLine("$key,$value")
@@ -377,8 +402,8 @@ internal class WorkflowServiceTest {
         val makespanFile = PrintWriter("C:/scul/maxmin-makespan-hetero-scaled.csv")
         val tasksOverTimeFile = PrintWriter("C:/scul/maxmin-tasksOverTime-hetero-scaled.csv")
         metricsFile.appendLine("No# Tasks running,cpuUsage(CPU usage of all CPUs of the host in MHz),energyUsage(Power usage of the host in W)")
-        makespanFile.appendLine("Makespan(s)")
-        tasksOverTimeFile.appendLine("Time(s),#Tasks")
+        makespanFile.appendLine("Makespan (s),Workflow Response time (s)")
+        tasksOverTimeFile.appendLine("Time (s),Tasks #")
 
         repeat(HOST_COUNT) { computeHelper.registerHost(createHomogenousHostSpec(it)) }
         // Configure the WorkflowService that is responsible for scheduling the workflow tasks onto machines
@@ -416,6 +441,7 @@ internal class WorkflowServiceTest {
                 workflowHelper.replay(jobs) // Wait for all jobs to be executed completely
                 val makespans = jobs.map { it.tasks.maxOf { t -> t.metadata["finishedAt"] as Long } - it.tasks.minOf {t -> t.metadata["startedAt"] as Long } }
                 val completedTasksOverTime : MutableList<Double> = mutableListOf()
+                val workflowWaitTime : MutableList<Double> = mutableListOf()
                 for(job in jobs){
                     for(task in job.tasks){
                         val result = when((task.metadata["finishedAt"] as Long - task.metadata["startedAt"]  as Long) < 1000){
@@ -423,13 +449,20 @@ internal class WorkflowServiceTest {
                             true -> (task.metadata["finishedAt"] as Long - task.metadata["startedAt"]  as Long) / 1000.0
                         }
                         completedTasksOverTime.add(completedTasksOverTime.size,
-                            result.toDouble()
+                            (result).toDouble()
                         )
+                        val waitTime = task.metadata["jobWaitTime"] as Long?
+                        if(waitTime != null){
+                            workflowWaitTime.add(workflowWaitTime.size,
+                                (waitTime / 1000.0).toDouble())
+                        }
                     }
                 }
+                val workflowResponseTime = (0 until workflowWaitTime.size).map { workflowWaitTime[it] + makespans[it] }
 
-                for(span in makespans){
-                    makespanFile.appendLine("$span")
+                (0 until workflowWaitTime.size).map{
+                    makespanFile.appendLine("${makespans[it]},${kotlin.math.round(workflowResponseTime[it])}")
+
                 }
                 for ((key, value) in completedTasksOverTime.groupingBy { it }.eachCount().filter { it.value >= 1 }.entries){
                     tasksOverTimeFile.appendLine("$key,$value")

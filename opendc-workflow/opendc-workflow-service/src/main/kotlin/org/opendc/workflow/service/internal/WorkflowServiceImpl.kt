@@ -80,6 +80,9 @@ public class WorkflowServiceImpl(
      */
     internal val jobQueue: Queue<JobState>
 
+    internal val jobWaitTime : MutableMap<UUID, Long> = mutableMapOf()
+    internal val firstTasks : MutableSet<UUID> = linkedSetOf()
+
     /**
      * The task queue.
      */
@@ -290,7 +293,6 @@ public class WorkflowServiceImpl(
             } else if (!advice.admit) {
                 continue
             }
-
             iterator.remove()
             jobQueue.add(jobInstance)
             activeJobs += jobInstance
@@ -329,7 +331,11 @@ public class WorkflowServiceImpl(
             } else if (!advice.admit) {
                 continue
             }
-
+            if(!jobWaitTime.containsKey(taskInstance.job.job.uid)){
+                jobWaitTime[taskInstance.job.job.uid] = clock.millis()
+                (taskInstance.task.metadata as MutableMap<String, Any>)["jobWaitTime"] = clock.millis()
+                firstTasks.add(taskInstance.task.uid)
+            }
             taskIterator.remove()
             taskQueue.add(taskInstance)
         }
@@ -374,6 +380,9 @@ public class WorkflowServiceImpl(
             ServerState.RUNNING -> {
                 var task = taskByServer.getValue(server)
                 task.startedAt = clock.millis()
+                if(firstTasks.contains(task.task.uid)){
+                    (task.task.metadata as MutableMap<String, Any>)["jobWaitTime"] = task.startedAt - (task.task.metadata as MutableMap<String, Any>)["jobWaitTime"] as Long
+                }
                 (task.task.metadata as MutableMap<String, Any>)["startedAt"] = task.startedAt
                 runningTasks.add(1)
                 rootListener.taskStarted(task)
