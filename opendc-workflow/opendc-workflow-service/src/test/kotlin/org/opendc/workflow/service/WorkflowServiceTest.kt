@@ -112,10 +112,9 @@ internal class WorkflowServiceTest {
             override fun record(reader: HostTableReader){
                 cpuUsage = reader.cpuUsage
                 energyUsage = reader.powerUsage
-                if(cpuUsage != 0.0 && energyUsage != 0.0){
                     metricsFile.appendLine("${reader.guestsRunning},$cpuUsage,$energyUsage")
 //                    println("${reader.guestsRunning},$cpuUsage,$energyUsage")
-                }
+
             }
         }, exportInterval = Duration.ofMinutes(1))
 
@@ -220,8 +219,7 @@ internal class WorkflowServiceTest {
             override fun record(reader: HostTableReader){
                 cpuUsage = reader.cpuUsage
                 energyUsage = reader.powerUsage
-                if(cpuUsage != 0.0 && energyUsage != 0.0)
-                    metricsFile.appendLine("${reader.guestsRunning},$cpuUsage,$energyUsage")
+                metricsFile.appendLine("${reader.guestsRunning},$cpuUsage,$energyUsage")
             }
         }, exportInterval = Duration.ofSeconds(10))
 
@@ -322,8 +320,7 @@ internal class WorkflowServiceTest {
             override fun record(reader: HostTableReader){
                 cpuUsage = reader.cpuUsage
                 energyUsage = reader.powerUsage
-                if(cpuUsage != 0.0 && energyUsage != 0.0)
-                    metricsFile.appendLine("${reader.guestsRunning},$cpuUsage,$energyUsage")
+                metricsFile.appendLine("${reader.guestsRunning},$cpuUsage,$energyUsage")
             }
         }, exportInterval = Duration.ofSeconds(10))
 
@@ -424,8 +421,7 @@ internal class WorkflowServiceTest {
             override fun record(reader: HostTableReader){
                 cpuUsage = reader.cpuUsage
                 energyUsage = reader.powerUsage
-                if(cpuUsage != 0.0 && energyUsage != 0.0)
-                    metricsFile.appendLine("${reader.guestsRunning},$cpuUsage,$energyUsage")
+                metricsFile.appendLine("${reader.guestsRunning},$cpuUsage,$energyUsage")
             }
         }, exportInterval = Duration.ofSeconds(10))
 
