@@ -110,9 +110,9 @@ internal class WorkflowServiceTest {
     fun testTraceHeteroScaled() {
         val numHosts = 8
         val config = hashMapOf<String, Any>(
-            "path_metrics" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-metrics-homo-scaled.csv",
-            "path_makespan" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-makespan-homo-scaled.csv",
-            "path_tasksOverTime" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-tasksOverTime-homo-scaled.csv",
+            "path_metrics" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-metrics-hetero-scaled.csv",
+            "path_makespan" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-makespan-hetero-scaled.csv",
+            "path_tasksOverTime" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-tasksOverTime-hetero-scaled.csv",
             "host_function" to listOf(
                 Pair(numHosts / 2) { id: Int -> createHomogenousHostSpec(id) },
                 Pair(numHosts / 2) { id: Int -> createHomogenousHostSpec2(id) },
@@ -130,9 +130,9 @@ internal class WorkflowServiceTest {
     fun testTraceHomoScaled() {
         val numHosts = 8
         val config = hashMapOf<String, Any>(
-            "path_metrics" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-metrics-hetero-scaled.csv",
-            "path_makespan" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-makespan-hetero-scaled.csv",
-            "path_tasksOverTime" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-tasksOverTime-hetero-scaled.csv",
+            "path_metrics" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-metrics-homo-scaled.csv",
+            "path_makespan" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-makespan-homo-scaled.csv",
+            "path_tasksOverTime" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-tasksOverTime-homo-scaled.csv",
             "host_function" to listOf(
                 Pair(numHosts) { id: Int -> createHomogenousHostSpec(id) },
             ),
