@@ -47,8 +47,10 @@ import org.opendc.telemetry.sdk.metrics.export.CoroutineMetricReader
 import org.opendc.trace.Trace
 import org.opendc.workflow.service.scheduler.job.ExecutionTimeJobOrderPolicy
 import org.opendc.workflow.service.scheduler.job.NullJobAdmissionPolicy
+import org.opendc.workflow.service.scheduler.job.RandomJobOrderPolicy
 import org.opendc.workflow.service.scheduler.task.ExecutionTimeTaskOderPolicy
 import org.opendc.workflow.service.scheduler.task.NullTaskEligibilityPolicy
+import org.opendc.workflow.service.scheduler.task.RandomTaskOrderPolicy
 import org.opendc.workflow.workload.WorkflowSchedulerSpec
 import org.opendc.workflow.workload.WorkflowServiceHelper
 import org.opendc.workflow.workload.toJobs
@@ -66,23 +68,24 @@ import kotlin.collections.HashMap
 @DisplayName("WorkflowService")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 internal class WorkflowServiceTest {
-    val basePath = System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"
+    val basePath = System.getProperty("user.home") + "/OpenDC Test Automation/Random"
+    val readOutInterval = 20
 
     @BeforeAll
     fun setup() {
         // create the folder
-        val file = File(System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min").mkdirs()
+        val file = File(System.getProperty("user.home") + "/OpenDC Test Automation/Random").mkdirs()
     }
 
     @Test
     fun testHomo4() {
         val numHosts = 4
         val config = hashMapOf<String, Any>(
-            "path_metrics" to "$basePath/specTrace2_maxMin_homo_scale4_metrics.csv",
-            "path_makespan" to "$basePath/specTrace2_maxMin_homo_scale4_makespan.csv",
-            "path_tasksOverTime" to "$basePath/specTrace2_maxMin_homo_scale4_taksOvertime.csv",
+            "path_metrics" to "$basePath/specTrace2_random_homo_scale4_metrics.csv",
+            "path_makespan" to "$basePath/specTrace2_random_homo_scale4_makespan.csv",
+            "path_tasksOverTime" to "$basePath/specTrace2_random_homo_scale4_taksOvertime.csv",
             "host_function" to listOf(Pair(numHosts, { id : Int -> createHomogenousHostSpec(id)})),
-            "metric_readoutMinutes" to 10.toLong(),
+            "metric_readoutMinutes" to readOutInterval.toLong(),
             "tracePath" to "/spec_trace-2_parquet",
             "traceFormat" to "wtf",
             "numberJobs" to 200.toLong(),
@@ -94,11 +97,11 @@ internal class WorkflowServiceTest {
     fun testHomo8() {
         val numHosts = 8
         val config = hashMapOf<String, Any>(
-            "path_metrics" to "$basePath/specTrace2_maxMin_homo_scale8_metrics.csv",
-            "path_makespan" to "$basePath/specTrace2_maxMin_homo_scale8_makespan.csv",
-            "path_tasksOverTime" to "$basePath/specTrace2_maxMin_homo_scale8_taksOvertime.csv",
+            "path_metrics" to "$basePath/specTrace2_random_homo_scale8_metrics.csv",
+            "path_makespan" to "$basePath/specTrace2_random_homo_scale8_makespan.csv",
+            "path_tasksOverTime" to "$basePath/specTrace2_random_homo_scale8_taksOvertime.csv",
             "host_function" to listOf(Pair(numHosts, { id : Int -> createHomogenousHostSpec(id)})),
-            "metric_readoutMinutes" to 10.toLong(),
+            "metric_readoutMinutes" to readOutInterval.toLong(),
             "tracePath" to "/spec_trace-2_parquet",
             "traceFormat" to "wtf",
             "numberJobs" to 200.toLong(),
@@ -110,11 +113,11 @@ internal class WorkflowServiceTest {
     fun testHomo16() {
         val numHosts = 16
         val config = hashMapOf<String, Any>(
-            "path_metrics" to "$basePath/specTrace2_maxMin_homo_scale16_metrics.csv",
-            "path_makespan" to "$basePath/specTrace2_maxMin_homo_scale16_makespan.csv",
-            "path_tasksOverTime" to "$basePath/specTrace2_maxMin_homo_scale16_taksOvertime.csv",
+            "path_metrics" to "$basePath/specTrace2_random_homo_scale16_metrics.csv",
+            "path_makespan" to "$basePath/specTrace2_random_homo_scale16_makespan.csv",
+            "path_tasksOverTime" to "$basePath/specTrace2_random_homo_scale16_taksOvertime.csv",
             "host_function" to listOf(Pair(numHosts, { id : Int -> createHomogenousHostSpec(id)})),
-            "metric_readoutMinutes" to 10.toLong(),
+            "metric_readoutMinutes" to readOutInterval.toLong(),
             "tracePath" to "/spec_trace-2_parquet",
             "traceFormat" to "wtf",
             "numberJobs" to 200.toLong(),
@@ -126,14 +129,14 @@ internal class WorkflowServiceTest {
     fun testHetro4() {
         val numHosts = 4
         val config = hashMapOf<String, Any>(
-            "path_metrics" to "$basePath/specTrace2_maxMin_hetro_scale4_metrics.csv",
-            "path_makespan" to "$basePath/specTrace2_maxMin_hetro_scale4_makespan.csv",
-            "path_tasksOverTime" to "$basePath/specTrace2_maxMin_hetro_scale4_taksOvertime.csv",
+            "path_metrics" to "$basePath/specTrace2_random_hetro_scale4_metrics.csv",
+            "path_makespan" to "$basePath/specTrace2_random_hetro_scale4_makespan.csv",
+            "path_tasksOverTime" to "$basePath/specTrace2_random_hetro_scale4_taksOvertime.csv",
             "host_function" to listOf(
                 Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec(id)}),
                 Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec2(id)}),
             ),
-            "metric_readoutMinutes" to 10.toLong(),
+            "metric_readoutMinutes" to readOutInterval.toLong(),
             "tracePath" to "/spec_trace-2_parquet",
             "traceFormat" to "wtf",
             "numberJobs" to 200.toLong(),
@@ -145,14 +148,14 @@ internal class WorkflowServiceTest {
     fun testHetro8() {
         val numHosts = 8
         val config = hashMapOf<String, Any>(
-            "path_metrics" to "$basePath/specTrace2_maxMin_hetro_scale8_metrics.csv",
-            "path_makespan" to "$basePath/specTrace2_maxMin_hetro_scale8_makespan.csv",
-            "path_tasksOverTime" to "$basePath/specTrace2_maxMin_hetro_scale8_taksOvertime.csv",
+            "path_metrics" to "$basePath/specTrace2_random_hetro_scale8_metrics.csv",
+            "path_makespan" to "$basePath/specTrace2_random_hetro_scale8_makespan.csv",
+            "path_tasksOverTime" to "$basePath/specTrace2_random_hetro_scale8_taksOvertime.csv",
             "host_function" to listOf(
                 Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec(id)}),
                 Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec2(id)}),
             ),
-            "metric_readoutMinutes" to 10.toLong(),
+            "metric_readoutMinutes" to readOutInterval.toLong(),
             "tracePath" to "/spec_trace-2_parquet",
             "traceFormat" to "wtf",
             "numberJobs" to 200.toLong(),
@@ -164,14 +167,14 @@ internal class WorkflowServiceTest {
     fun testHetro16() {
         val numHosts = 16
         val config = hashMapOf<String, Any>(
-            "path_metrics" to "$basePath/specTrace2_maxMin_hetro_scale16_metrics.csv",
-            "path_makespan" to "$basePath/specTrace2_maxMin_hetro_scale16_makespan.csv",
-            "path_tasksOverTime" to "$basePath/specTrace2_maxMin_hetro_scale16_taksOvertime.csv",
+            "path_metrics" to "$basePath/specTrace2_random_hetro_scale16_metrics.csv",
+            "path_makespan" to "$basePath/specTrace2_random_hetro_scale16_makespan.csv",
+            "path_tasksOverTime" to "$basePath/specTrace2_random_hetro_scale16_taksOvertime.csv",
             "host_function" to listOf(
                 Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec(id)}),
                 Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec2(id)}),
             ),
-            "metric_readoutMinutes" to 10.toLong(),
+            "metric_readoutMinutes" to readOutInterval.toLong(),
             "tracePath" to "/spec_trace-2_parquet",
             "traceFormat" to "wtf",
             "numberJobs" to 200.toLong(),
@@ -218,9 +221,9 @@ internal class WorkflowServiceTest {
         val workflowScheduler = WorkflowSchedulerSpec(
             schedulingQuantum = Duration.ofMillis(100),
             jobAdmissionPolicy = NullJobAdmissionPolicy,
-            jobOrderPolicy = ExecutionTimeJobOrderPolicy(),
+            jobOrderPolicy = RandomJobOrderPolicy,
             taskEligibilityPolicy = NullTaskEligibilityPolicy,
-            taskOrderPolicy = ExecutionTimeTaskOderPolicy(),
+            taskOrderPolicy = RandomTaskOrderPolicy,
         )
         val workflowHelper = WorkflowServiceHelper(coroutineContext, clock, computeHelper.service.newClient(), workflowScheduler)
         val metricReader = CoroutineMetricReader(this, computeHelper.producers, object : ComputeMetricExporter(){
