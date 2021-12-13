@@ -54,6 +54,7 @@ import org.opendc.workflow.service.scheduler.task.NullTaskEligibilityPolicy
 import org.opendc.workflow.workload.WorkflowSchedulerSpec
 import org.opendc.workflow.workload.WorkflowServiceHelper
 import org.opendc.workflow.workload.toJobs
+import java.io.File
 import java.nio.file.Paths
 import java.time.Duration
 import java.util.*
@@ -69,12 +70,14 @@ internal class WorkflowServiceTest {
     @Test
     fun testTraceHomoUnscaled() {
         val numHosts = 4
+        val file = File(System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min").mkdirs()
+
         val config = hashMapOf<String, Any>(
-            "path_metrics" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-metrics-homo-unscaled.csv",
+            "path_metrics" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min" + "/maxmin-metrics-homo-unscaled.csv",
             "path_makespan" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-makespan-homo-unscaled.csv",
             "path_tasksOverTime" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-tasksOverTime-homo-unscaled.csv",
-            "host_function" to listOf(Pair(numHosts, { id : Int -> createHomogenousHostSpec(id)})),
-            "metric_readoutMinutes" to 1.toLong(),
+            "host_function" to listOf(Pair(numHosts) { id: Int -> createHomogenousHostSpec(id) }),
+            "metric_readoutMinutes" to 10.toLong(),
             "tracePath" to "/spec_trace-2_parquet",
             "traceFormat" to "wtf",
             "numberJobs" to 200.toLong(),
@@ -91,13 +94,13 @@ internal class WorkflowServiceTest {
             "path_makespan" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-makespan-hetero-unscaled.csv",
             "path_tasksOverTime" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-tasksOverTime-hetero-unscaled.csv",
             "host_function" to listOf(
-                Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec(id)}),
-                Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec2(id)}),
+                Pair(numHosts / 2) { id: Int -> createHomogenousHostSpec(id) },
+                Pair(numHosts / 2) { id: Int -> createHomogenousHostSpec2(id) },
             ),
             "metric_readoutMinutes" to 10.toLong(),
-            "tracePath" to "/askalon-new_ee11_parquet",
+            "tracePath" to "/spec_trace-2_parquet",
             "traceFormat" to "wtf",
-            "numberJobs" to 20.toLong(),
+            "numberJobs" to 200.toLong(),
         )
 
         testTemplate(config)
@@ -111,13 +114,13 @@ internal class WorkflowServiceTest {
             "path_makespan" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-makespan-homo-scaled.csv",
             "path_tasksOverTime" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-tasksOverTime-homo-scaled.csv",
             "host_function" to listOf(
-                Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec(id)}),
-                Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec2(id)}),
+                Pair(numHosts / 2) { id: Int -> createHomogenousHostSpec(id) },
+                Pair(numHosts / 2) { id: Int -> createHomogenousHostSpec2(id) },
             ),
             "metric_readoutMinutes" to 10.toLong(),
-            "tracePath" to "/askalon-new_ee11_parquet",
+            "tracePath" to "/spec_trace-2_parquet",
             "traceFormat" to "wtf",
-            "numberJobs" to 20.toLong(),
+            "numberJobs" to 200.toLong(),
         )
 
         testTemplate(config)
@@ -131,12 +134,12 @@ internal class WorkflowServiceTest {
             "path_makespan" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-makespan-hetero-scaled.csv",
             "path_tasksOverTime" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-tasksOverTime-hetero-scaled.csv",
             "host_function" to listOf(
-                Pair(numHosts, { id : Int -> createHomogenousHostSpec(id)}),
+                Pair(numHosts) { id: Int -> createHomogenousHostSpec(id) },
             ),
             "metric_readoutMinutes" to 10.toLong(),
-            "tracePath" to "/askalon-new_ee11_parquet",
+            "tracePath" to "/spec_trace-2_parquet",
             "traceFormat" to "wtf",
-            "numberJobs" to 20.toLong(),
+            "numberJobs" to 200.toLong(),
         )
 
         testTemplate(config)
@@ -194,8 +197,7 @@ internal class WorkflowServiceTest {
             override fun record(reader: HostTableReader){
                 cpuUsage = reader.cpuUsage
                 energyUsage = reader.powerTotal
-                metricsFile.appendLine("${reader.guestsRunning},$cpuUsage,$energyUsage")
-//                    println("${reader.guestsRunning},$cpuUsage,$energyUsage")
+                metricsFile.appendLine("${reader.guestsRunning},$cpuUsage,${energyUsage.toInt()}")
 
             }
         }, exportInterval = Duration.ofMinutes(config["metric_readoutMinutes"] as Long))
