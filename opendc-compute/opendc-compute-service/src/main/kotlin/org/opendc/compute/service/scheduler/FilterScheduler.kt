@@ -91,7 +91,7 @@ public class FilterScheduler(
 
             weights.indices
                 .asSequence()
-                .sortedByDescending { weights[it] }
+                .sortedBy{ weights[it] }
                 .map { filteredHosts[it] }
                 .take(subsetSize)
                 .toList()

@@ -99,7 +99,7 @@ public class WorkflowServiceImpl(
     /**
      * The running tasks by [Server].
      */
-    private val taskByServer = mutableMapOf<Server, TaskState>()
+    internal val taskByServer = mutableMapOf<Server, TaskState>()
 
     /**
      * The root listener of this scheduler.
@@ -241,6 +241,7 @@ public class WorkflowServiceImpl(
     override suspend fun invoke(job: Job): Unit = suspendCancellableCoroutine { cont ->
         // J1 Incoming Jobs
         val jobInstance = JobState(job, clock.millis(), cont)
+        job.metadata.put("submittedAt", jobInstance.submittedAt)
         val instances = job.tasks.associateWith {
             TaskState(jobInstance, it)
         }
@@ -372,7 +373,6 @@ public class WorkflowServiceImpl(
             } else if (!advice.admit) {
                 continue
             }
-
             taskIterator.remove()
             taskQueue.add(taskInstance)
         }
@@ -446,8 +446,9 @@ public class WorkflowServiceImpl(
         when (newState) {
             ServerState.PROVISIONING -> {}
             ServerState.RUNNING -> {
-                val task = taskByServer.getValue(server)
+                var task = taskByServer.getValue(server)
                 task.startedAt = clock.millis()
+                (task.task.metadata as MutableMap<String, Any>)["startedAt"] = task.startedAt
                 runningTasks.add(1)
                 rootListener.taskStarted(task)
             }
@@ -461,6 +462,7 @@ public class WorkflowServiceImpl(
                 val job = task.job
                 task.state = TaskStatus.FINISHED
                 task.finishedAt = clock.millis()
+                (task.task.metadata as MutableMap<String, Any>)["finishedAt"] = task.finishedAt
                 job.tasks.remove(task)
                 activeTasks -= task
 

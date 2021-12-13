@@ -38,7 +38,7 @@ public data class Task(
     val uid: UUID,
     val name: String,
     var dependencies: Set<Task>,
-    val metadata: Map<String, Any> = emptyMap()
+    var metadata: Map<String, Any> = emptyMap()
 ) {
     override fun equals(other: Any?): Boolean = other is Task && uid == other.uid
 

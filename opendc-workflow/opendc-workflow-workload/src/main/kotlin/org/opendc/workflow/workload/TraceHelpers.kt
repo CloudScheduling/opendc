@@ -25,10 +25,7 @@ package org.opendc.workflow.workload
 
 import org.opendc.simulator.compute.workload.SimFlopsWorkload
 import org.opendc.trace.*
-import org.opendc.workflow.api.Job
-import org.opendc.workflow.api.Task
-import org.opendc.workflow.api.WORKFLOW_TASK_CORES
-import org.opendc.workflow.api.WORKFLOW_TASK_DEADLINE
+import org.opendc.workflow.api.*
 import java.util.*
 import kotlin.collections.HashMap
 import kotlin.collections.HashSet
@@ -55,9 +52,9 @@ public fun Trace.toJobs(): List<Job> {
                 reader.getInt(TASK_ALLOC_NCPUS)
             else
                 reader.getInt(TASK_REQ_NCPUS)
-            val submitTime = reader.get(TASK_SUBMIT_TIME)
-            val runtime = reader.get(TASK_RUNTIME)
-            val flops: Long = 4000 * runtime.seconds * grantedCpus
+//            val submitTime = reader.get(TASK_SUBMIT_TIME)
+            val executionTime = reader.get(TASK_RUNTIME)
+            val flops: Long = 4000 * executionTime.seconds * grantedCpus
             val workload = SimFlopsWorkload(flops)
             val task = Task(
                 UUID(0L, id),
@@ -66,14 +63,14 @@ public fun Trace.toJobs(): List<Job> {
                 mapOf(
                     "workload" to workload,
                     WORKFLOW_TASK_CORES to grantedCpus,
-                    WORKFLOW_TASK_DEADLINE to runtime.toMillis()
+                    WORKFLOW_TASK_EXECUTION to executionTime.toMillis()
                 ),
             )
 
             tasks[id] = task
             taskDependencies[task] = reader.get(TASK_PARENTS).map { it.toLong() }.toSet()
 
-            (workflow.metadata as MutableMap<String, Any>).merge("WORKFLOW_SUBMIT_TIME", submitTime.toEpochMilli()) { a, b -> min(a as Long, b as Long) }
+            (workflow.metadata as MutableMap<String, Any>).merge("WORKFLOW_EXECUTION_TIME", executionTime.toMillis()) { a, b -> min(a as Long, b as Long) }
             (workflow.tasks as MutableSet<Task>).add(task)
         }
 
