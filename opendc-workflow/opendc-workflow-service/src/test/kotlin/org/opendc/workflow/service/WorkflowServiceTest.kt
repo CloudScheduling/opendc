@@ -85,7 +85,7 @@ internal class WorkflowServiceTest {
             "path_makespan" to "$basePath/specTrace2_elop_homo_scale4_makespan.csv",
             "path_tasksOverTime" to "$basePath/specTrace2_elop_homo_scale4_taksOvertime.csv",
             "host_function" to listOf(Pair(numHosts, { id : Int -> createHomogenousHostSpec(id)})),
-            "metric_readoutMinutes" to 10.toLong(),
+            "metric_readoutMinutes" to readOutInterval.toLong(),
             "tracePath" to "/spec_trace-2_parquet",
             "traceFormat" to "wtf",
             "numberJobs" to 200.toLong(),
