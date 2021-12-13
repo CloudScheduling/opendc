@@ -25,6 +25,7 @@ package org.opendc.workflow.service
 import io.opentelemetry.sdk.metrics.export.MetricProducer
 import kotlinx.coroutines.coroutineScope
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
@@ -67,81 +68,116 @@ import kotlin.collections.HashMap
  */
 @DisplayName("WorkflowService")
 internal class WorkflowServiceTest {
-    @Test
-    fun testTraceHomoUnscaled() {
-        val numHosts = 4
+    val basePath = System.getProperty("user.home") + "/OpenDC Test Automation/ELOP"
+
+    @BeforeAll
+    fun setup() {
+        // create the folder
         val file = File(System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min").mkdirs()
-
-        val config = hashMapOf<String, Any>(
-            "path_metrics" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min" + "/maxmin-metrics-homo-unscaled.csv",
-            "path_makespan" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-makespan-homo-unscaled.csv",
-            "path_tasksOverTime" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-tasksOverTime-homo-unscaled.csv",
-            "host_function" to listOf(Pair(numHosts) { id: Int -> createHomogenousHostSpec(id) }),
-            "metric_readoutMinutes" to 10.toLong(),
-            "tracePath" to "/spec_trace-2_parquet",
-            "traceFormat" to "wtf",
-            "numberJobs" to 200.toLong(),
-        )
-
-        testTemplate(config)
     }
 
     @Test
-    fun testTraceHeteroUnscaled() {
+    fun testHomo4() {
         val numHosts = 4
         val config = hashMapOf<String, Any>(
-            "path_metrics" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-metrics-hetero-unscaled.csv",
-            "path_makespan" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-makespan-hetero-unscaled.csv",
-            "path_tasksOverTime" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-tasksOverTime-hetero-unscaled.csv",
-            "host_function" to listOf(
-                Pair(numHosts / 2) { id: Int -> createHomogenousHostSpec(id) },
-                Pair(numHosts / 2) { id: Int -> createHomogenousHostSpec2(id) },
-            ),
+            "path_metrics" to "$basePath/specTrace2_maxMin_homo_scale4_metrics.csv",
+            "path_makespan" to "$basePath/specTrace2_maxMin_homo_scale4_makespan.csv",
+            "path_tasksOverTime" to "$basePath/specTrace2_maxMin_homo_scale4_taksOvertime.csv",
+            "host_function" to listOf(Pair(numHosts, { id : Int -> createHomogenousHostSpec(id)})),
             "metric_readoutMinutes" to 10.toLong(),
             "tracePath" to "/spec_trace-2_parquet",
             "traceFormat" to "wtf",
             "numberJobs" to 200.toLong(),
         )
-
         testTemplate(config)
     }
 
     @Test
-    fun testTraceHeteroScaled() {
+    fun testHomo8() {
         val numHosts = 8
         val config = hashMapOf<String, Any>(
-            "path_metrics" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-metrics-homo-scaled.csv",
-            "path_makespan" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-makespan-homo-scaled.csv",
-            "path_tasksOverTime" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-tasksOverTime-homo-scaled.csv",
-            "host_function" to listOf(
-                Pair(numHosts / 2) { id: Int -> createHomogenousHostSpec(id) },
-                Pair(numHosts / 2) { id: Int -> createHomogenousHostSpec2(id) },
-            ),
+            "path_metrics" to "$basePath/specTrace2_maxMin_homo_scale8_metrics.csv",
+            "path_makespan" to "$basePath/specTrace2_maxMin_homo_scale8_makespan.csv",
+            "path_tasksOverTime" to "$basePath/specTrace2_maxMin_homo_scale8_taksOvertime.csv",
+            "host_function" to listOf(Pair(numHosts, { id : Int -> createHomogenousHostSpec(id)})),
             "metric_readoutMinutes" to 10.toLong(),
             "tracePath" to "/spec_trace-2_parquet",
             "traceFormat" to "wtf",
             "numberJobs" to 200.toLong(),
         )
-
         testTemplate(config)
     }
 
     @Test
-    fun testTraceHomoScaled() {
-        val numHosts = 8
+    fun testHomo16() {
+        val numHosts = 16
         val config = hashMapOf<String, Any>(
-            "path_metrics" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-metrics-hetero-scaled.csv",
-            "path_makespan" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-makespan-hetero-scaled.csv",
-            "path_tasksOverTime" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-tasksOverTime-hetero-scaled.csv",
+            "path_metrics" to "$basePath/specTrace2_maxMin_homo_scale16_metrics.csv",
+            "path_makespan" to "$basePath/specTrace2_maxMin_homo_scale16_makespan.csv",
+            "path_tasksOverTime" to "$basePath/specTrace2_maxMin_homo_scale16_taksOvertime.csv",
+            "host_function" to listOf(Pair(numHosts, { id : Int -> createHomogenousHostSpec(id)})),
+            "metric_readoutMinutes" to 10.toLong(),
+            "tracePath" to "/spec_trace-2_parquet",
+            "traceFormat" to "wtf",
+            "numberJobs" to 200.toLong(),
+        )
+        testTemplate(config)
+    }
+
+    @Test
+    fun testHetro4() {
+        val numHosts = 4
+        val config = hashMapOf<String, Any>(
+            "path_metrics" to "$basePath/specTrace2_maxMin_hetro_scale4_metrics.csv",
+            "path_makespan" to "$basePath/specTrace2_maxMin_hetro_scale4_makespan.csv",
+            "path_tasksOverTime" to "$basePath/specTrace2_maxMin_hetro_scale4_taksOvertime.csv",
             "host_function" to listOf(
-                Pair(numHosts) { id: Int -> createHomogenousHostSpec(id) },
+                Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec(id)}),
+                Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec2(id)}),
             ),
             "metric_readoutMinutes" to 10.toLong(),
             "tracePath" to "/spec_trace-2_parquet",
             "traceFormat" to "wtf",
             "numberJobs" to 200.toLong(),
         )
+        testTemplate(config)
+    }
 
+    @Test
+    fun testHetro8() {
+        val numHosts = 8
+        val config = hashMapOf<String, Any>(
+            "path_metrics" to "$basePath/specTrace2_maxMin_hetro_scale8_metrics.csv",
+            "path_makespan" to "$basePath/specTrace2_maxMin_hetro_scale8_makespan.csv",
+            "path_tasksOverTime" to "$basePath/specTrace2_maxMin_hetro_scale8_taksOvertime.csv",
+            "host_function" to listOf(
+                Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec(id)}),
+                Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec2(id)}),
+            ),
+            "metric_readoutMinutes" to 10.toLong(),
+            "tracePath" to "/spec_trace-2_parquet",
+            "traceFormat" to "wtf",
+            "numberJobs" to 200.toLong(),
+        )
+        testTemplate(config)
+    }
+
+    @Test
+    fun testHetro16() {
+        val numHosts = 16
+        val config = hashMapOf<String, Any>(
+            "path_metrics" to "$basePath/specTrace2_maxMin_hetro_scale16_metrics.csv",
+            "path_makespan" to "$basePath/specTrace2_maxMin_hetro_scale16_makespan.csv",
+            "path_tasksOverTime" to "$basePath/specTrace2_maxMin_hetro_scale16_taksOvertime.csv",
+            "host_function" to listOf(
+                Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec(id)}),
+                Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec2(id)}),
+            ),
+            "metric_readoutMinutes" to 10.toLong(),
+            "tracePath" to "/spec_trace-2_parquet",
+            "traceFormat" to "wtf",
+            "numberJobs" to 200.toLong(),
+        )
         testTemplate(config)
     }
 
