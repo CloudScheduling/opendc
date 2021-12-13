@@ -12,7 +12,7 @@ if [ -d "$OPENDC_ENV" ];
 then
     echo "The directory $OPENDC_ENV is already there. Do you want to go ahead and delete? Press ENTER -> Yes, Ctrl+C -> Exit!"
     read
-    rm -Rf $OPENDC_ENV;
+    rm -rf "$OPENDC_ENV";
     echo "Deleted the directory $basepath, to start afresh!"
 fi
 mkdir -p "$OPENDC_ENV"
