@@ -86,8 +86,13 @@ internal class WorkflowServiceTest {
         val computeHelper = ComputeServiceHelper(coroutineContext, clock, computeScheduler, schedulingQuantum = Duration.ofSeconds(1))
 
         val metricsFile = PrintWriter(System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-metrics-homo-unscaled.csv")
-        val makespanFile = PrintWriter(System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-makespan-homo-unscaled.csv")
+        val makespanFile =  PrintWriter(System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-makespan-homo-unscaled.csv")
         val tasksOverTimeFile = PrintWriter(System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-tasksOverTime-homo-unscaled.csv")
+
+//        val metricsFile = PrintWriter("C:/scul/maxmin-metrics-homo-unscaled.csv")
+//        val makespanFile =  PrintWriter("C:/scul/maxmin-makespan-homo-unscaled.csv")
+//        val tasksOverTimeFile = PrintWriter("C:/scul/maxmin-tasksOverTime-homo-unscaled.csv")
+
         metricsFile.appendLine("No# Tasks running,cpuUsage(CPU usage of all CPUs of the host in MHz),energyUsage(Power usage of the host in W)")
         makespanFile.appendLine("Makespan (s),Workflow Response time (s)")
         tasksOverTimeFile.appendLine("Time (s),Tasks #")
@@ -132,8 +137,9 @@ internal class WorkflowServiceTest {
                 workflowHelper.replay(jobs) // Wait for all jobs to be executed completely
                 val makespans = jobs.map { (it.tasks.maxOf { t -> t.metadata["finishedAt"] as Long } - it.tasks.minOf {t -> t.metadata["startedAt"] as Long }) / 1000}
 
+                val workflowWaitTime = jobs.map { (it.tasks.minOf {t -> t.metadata["startedAt"] as Long } - it.metadata["submittedAt"] as Long) / 1000}
                 val completedTasksOverTime : MutableList<Double> = mutableListOf()
-                val workflowWaitTime : MutableList<Double> = mutableListOf()
+
                 for(job in jobs){
                     for(task in job.tasks){
                         val result = when((task.metadata["finishedAt"] as Long - task.metadata["startedAt"]  as Long) < 1000){
@@ -143,17 +149,12 @@ internal class WorkflowServiceTest {
                         completedTasksOverTime.add(completedTasksOverTime.size,
                             (result).toDouble()
                         )
-                        val waitTime = task.metadata["jobWaitTime"] as Long?
-                        if(waitTime != null){
-                            workflowWaitTime.add(workflowWaitTime.size,
-                                (waitTime / 1000.0).toDouble())
-                        }
                     }
                 }
-                val workflowResponseTime = (0 until workflowWaitTime.size).map { workflowWaitTime[it] + makespans[it] }
+                val workflowResponseTime = (workflowWaitTime.indices).map { workflowWaitTime[it] + makespans[it] }
 
-                (0 until workflowWaitTime.size).map{
-                    makespanFile.appendLine("${makespans[it]},${kotlin.math.round(workflowResponseTime[it])}")
+                (workflowWaitTime.indices).map{
+                    makespanFile.appendLine("${makespans[it]},${kotlin.math.round(workflowResponseTime[it].toDouble())}")
 
                 }
                 for ((key, value) in completedTasksOverTime.groupingBy { it }.eachCount().filter { it.value >= 1 }.entries){
@@ -175,7 +176,7 @@ internal class WorkflowServiceTest {
         print(metrics)
 
         assertAll(
-            { assertEquals(20, metrics.jobsSubmitted, "No jobs submitted") },
+            { assertEquals(200, metrics.jobsSubmitted, "No jobs submitted") },
             { assertEquals(0, metrics.jobsActive, "Not all submitted jobs started") },
             { assertEquals(metrics.jobsSubmitted, metrics.jobsFinished, "Not all started jobs finished") },
             { assertEquals(0, metrics.tasksActive, "Not all started tasks finished") },
@@ -233,9 +234,11 @@ internal class WorkflowServiceTest {
 
                 val jobs = trace.toJobs()
                 workflowHelper.replay(jobs) // Wait for all jobs to be executed completely
-                val makespans = jobs.map { it.tasks.maxOf { t -> t.metadata["finishedAt"] as Long } - it.tasks.minOf {t -> t.metadata["startedAt"] as Long } }
+                val makespans = jobs.map { (it.tasks.maxOf { t -> t.metadata["finishedAt"] as Long } - it.tasks.minOf {t -> t.metadata["startedAt"] as Long }) / 1000}
+
+                val workflowWaitTime = jobs.map { (it.tasks.minOf {t -> t.metadata["startedAt"] as Long } - it.metadata["submittedAt"] as Long) / 1000}
                 val completedTasksOverTime : MutableList<Double> = mutableListOf()
-                val workflowWaitTime : MutableList<Double> = mutableListOf()
+
                 for(job in jobs){
                     for(task in job.tasks){
                         val result = when((task.metadata["finishedAt"] as Long - task.metadata["startedAt"]  as Long) < 1000){
@@ -245,17 +248,12 @@ internal class WorkflowServiceTest {
                         completedTasksOverTime.add(completedTasksOverTime.size,
                             (result).toDouble()
                         )
-                        val waitTime = task.metadata["jobWaitTime"] as Long?
-                        if(waitTime != null){
-                            workflowWaitTime.add(workflowWaitTime.size,
-                                (waitTime / 1000.0).toDouble())
-                        }
                     }
                 }
-                val workflowResponseTime = (0 until workflowWaitTime.size).map { workflowWaitTime[it] + makespans[it] }
+                val workflowResponseTime = (workflowWaitTime.indices).map { workflowWaitTime[it] + makespans[it] }
 
-                (0 until workflowWaitTime.size).map{
-                    makespanFile.appendLine("${makespans[it]},${kotlin.math.round(workflowResponseTime[it])}")
+                (workflowWaitTime.indices).map{
+                    makespanFile.appendLine("${makespans[it]},${kotlin.math.round(workflowResponseTime[it].toDouble())}")
 
                 }
                 for ((key, value) in completedTasksOverTime.groupingBy { it }.eachCount().filter { it.value >= 1 }.entries){
@@ -335,9 +333,11 @@ internal class WorkflowServiceTest {
 
                 val jobs = trace.toJobs()
                 workflowHelper.replay(jobs) // Wait for all jobs to be executed completely
-                val makespans = jobs.map { it.tasks.maxOf { t -> t.metadata["finishedAt"] as Long } - it.tasks.minOf {t -> t.metadata["startedAt"] as Long } }
+                val makespans = jobs.map { (it.tasks.maxOf { t -> t.metadata["finishedAt"] as Long } - it.tasks.minOf {t -> t.metadata["startedAt"] as Long }) / 1000}
+
+                val workflowWaitTime = jobs.map { (it.tasks.minOf {t -> t.metadata["startedAt"] as Long } - it.metadata["submittedAt"] as Long) / 1000}
                 val completedTasksOverTime : MutableList<Double> = mutableListOf()
-                val workflowWaitTime : MutableList<Double> = mutableListOf()
+
                 for(job in jobs){
                     for(task in job.tasks){
                         val result = when((task.metadata["finishedAt"] as Long - task.metadata["startedAt"]  as Long) < 1000){
@@ -347,17 +347,12 @@ internal class WorkflowServiceTest {
                         completedTasksOverTime.add(completedTasksOverTime.size,
                             (result).toDouble()
                         )
-                        val waitTime = task.metadata["jobWaitTime"] as Long?
-                        if(waitTime != null){
-                            workflowWaitTime.add(workflowWaitTime.size,
-                                (waitTime / 1000.0).toDouble())
-                        }
                     }
                 }
-                val workflowResponseTime = (0 until workflowWaitTime.size).map { workflowWaitTime[it] + makespans[it] }
+                val workflowResponseTime = (workflowWaitTime.indices).map { workflowWaitTime[it] + makespans[it] }
 
-                (0 until workflowWaitTime.size).map{
-                    makespanFile.appendLine("${makespans[it]},${kotlin.math.round(workflowResponseTime[it])}")
+                (workflowWaitTime.indices).map{
+                    makespanFile.appendLine("${makespans[it]},${kotlin.math.round(workflowResponseTime[it].toDouble())}")
 
                 }
                 for ((key, value) in completedTasksOverTime.groupingBy { it }.eachCount().filter { it.value >= 1 }.entries){
@@ -435,9 +430,11 @@ internal class WorkflowServiceTest {
 
                 val jobs = trace.toJobs()
                 workflowHelper.replay(jobs) // Wait for all jobs to be executed completely
-                val makespans = jobs.map { it.tasks.maxOf { t -> t.metadata["finishedAt"] as Long } - it.tasks.minOf {t -> t.metadata["startedAt"] as Long } }
+                val makespans = jobs.map { (it.tasks.maxOf { t -> t.metadata["finishedAt"] as Long } - it.tasks.minOf {t -> t.metadata["startedAt"] as Long }) / 1000}
+
+                val workflowWaitTime = jobs.map { (it.tasks.minOf {t -> t.metadata["startedAt"] as Long } - it.metadata["submittedAt"] as Long) / 1000}
                 val completedTasksOverTime : MutableList<Double> = mutableListOf()
-                val workflowWaitTime : MutableList<Double> = mutableListOf()
+
                 for(job in jobs){
                     for(task in job.tasks){
                         val result = when((task.metadata["finishedAt"] as Long - task.metadata["startedAt"]  as Long) < 1000){
@@ -447,17 +444,12 @@ internal class WorkflowServiceTest {
                         completedTasksOverTime.add(completedTasksOverTime.size,
                             (result).toDouble()
                         )
-                        val waitTime = task.metadata["jobWaitTime"] as Long?
-                        if(waitTime != null){
-                            workflowWaitTime.add(workflowWaitTime.size,
-                                (waitTime / 1000.0).toDouble())
-                        }
                     }
                 }
-                val workflowResponseTime = (0 until workflowWaitTime.size).map { workflowWaitTime[it] + makespans[it] }
+                val workflowResponseTime = (workflowWaitTime.indices).map { workflowWaitTime[it] + makespans[it] }
 
-                (0 until workflowWaitTime.size).map{
-                    makespanFile.appendLine("${makespans[it]},${kotlin.math.round(workflowResponseTime[it])}")
+                (workflowWaitTime.indices).map{
+                    makespanFile.appendLine("${makespans[it]},${kotlin.math.round(workflowResponseTime[it].toDouble())}")
 
                 }
                 for ((key, value) in completedTasksOverTime.groupingBy { it }.eachCount().filter { it.value >= 1 }.entries){

@@ -210,6 +210,7 @@ public class WorkflowServiceImpl(
     override suspend fun invoke(job: Job): Unit = suspendCancellableCoroutine { cont ->
         // J1 Incoming Jobs
         val jobInstance = JobState(job, clock.millis(), cont)
+        job.metadata.put("submittedAt", jobInstance.submittedAt)
         val instances = job.tasks.associateWith {
             TaskState(jobInstance, it)
         }
