@@ -72,12 +72,13 @@ internal class WorkflowServiceTest {
     @BeforeAll
     fun setup() {
         // create the folder
-        val file = File(System.getProperty("user.home") + "/OpenDC Test Automation/Min-Min").mkdirs()
+        // val file = File(System.getProperty("user.home") + "/OpenDC Test Automation/Min-Min").mkdirs()
     }
 
     @Test
     fun testHomo4() {
         val numHosts = 4
+        val file = File(System.getProperty("user.home") + "/OpenDC Test Automation/Min-Min").mkdirs()
         val config = hashMapOf<String, Any>(
             "path_metrics" to "$basePath/specTrace2_minMin_homo_scale4_metrics.csv",
             "path_makespan" to "$basePath/specTrace2_minMin_homo_scale4_makespan.csv",
