@@ -26,6 +26,7 @@ import io.opentelemetry.sdk.metrics.export.MetricProducer
 import kotlinx.coroutines.coroutineScope
 import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.opendc.compute.service.scheduler.AssignmentExecutionScheduler
 import org.opendc.compute.service.scheduler.FilterScheduler
 import org.opendc.compute.service.scheduler.filters.ComputeFilter
 import org.opendc.compute.service.scheduler.filters.RamFilter
@@ -192,10 +193,7 @@ internal class WorkflowServiceTest {
      */
     fun testTemplate(config : HashMap<String, Any>) = runBlockingSimulation {
         // Configure the ComputeService that is responsible for mapping virtual machines onto physical hosts
-        val computeScheduler = FilterScheduler(
-            filters = listOf(ComputeFilter(), VCpuFilter(1.0), RamFilter(1.0)),
-            weighers = listOf(VCpuWeigher(1.0, multiplier = 1.0))
-        )
+        val computeScheduler = AssignmentExecutionScheduler()
         val computeHelper = ComputeServiceHelper(coroutineContext, clock, computeScheduler, schedulingQuantum = Duration.ofSeconds(1))
 
         val metricsFile = PrintWriter(config["path_metrics"] as String)
