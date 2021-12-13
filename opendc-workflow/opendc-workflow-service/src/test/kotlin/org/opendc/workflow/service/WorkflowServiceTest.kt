@@ -68,7 +68,7 @@ import kotlin.collections.HashMap
  */
 @DisplayName("WorkflowService")
 internal class WorkflowServiceTest {
-    val basePath = System.getProperty("user.home") + "/OpenDC Test Automation/ELOP"
+    val basePath = System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"
 
     @BeforeAll
     fun setup() {
