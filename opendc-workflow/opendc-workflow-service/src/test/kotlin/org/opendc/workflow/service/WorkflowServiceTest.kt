@@ -84,7 +84,7 @@ internal class WorkflowServiceTest {
             "traceFormat" to "wtf",
             "numberJobs" to 200.toLong(),
         )
-        Pair(4, { id : Int -> createHomogenousHostSpec(id)})
+
         testTemplate(config)
     }
 
