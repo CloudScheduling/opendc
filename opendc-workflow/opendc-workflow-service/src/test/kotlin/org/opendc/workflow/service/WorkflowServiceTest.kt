@@ -24,11 +24,8 @@ package org.opendc.workflow.service
 
 import io.opentelemetry.sdk.metrics.export.MetricProducer
 import kotlinx.coroutines.coroutineScope
+import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.BeforeAll
-import org.junit.jupiter.api.DisplayName
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertAll
 import org.opendc.compute.service.scheduler.FilterScheduler
 import org.opendc.compute.service.scheduler.filters.ComputeFilter
 import org.opendc.compute.service.scheduler.filters.RamFilter
@@ -67,6 +64,7 @@ import kotlin.collections.HashMap
  * It is pretty easy: create a new test by copying a test and modify the parameters in the config.
  */
 @DisplayName("WorkflowService")
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 internal class WorkflowServiceTest {
     val basePath = System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"
 
