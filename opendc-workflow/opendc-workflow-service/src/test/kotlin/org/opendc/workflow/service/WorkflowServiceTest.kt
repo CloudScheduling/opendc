@@ -29,9 +29,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
 import org.opendc.compute.service.scheduler.FilterScheduler
-import org.opendc.compute.service.scheduler.filters.ComputeFilter
-import org.opendc.compute.service.scheduler.filters.RamFilter
-import org.opendc.compute.service.scheduler.filters.VCpuFilter
+import org.opendc.compute.service.scheduler.filters.*
 import org.opendc.compute.service.scheduler.weights.VCpuWeigher
 import org.opendc.compute.workload.ComputeServiceHelper
 import org.opendc.compute.workload.topology.HostSpec
@@ -47,10 +45,14 @@ import org.opendc.telemetry.compute.ComputeMetricExporter
 import org.opendc.telemetry.compute.table.HostTableReader
 import org.opendc.telemetry.sdk.metrics.export.CoroutineMetricReader
 import org.opendc.trace.Trace
+import org.opendc.workflow.service.internal.JobState
+import org.opendc.workflow.service.scheduler.job.ElopAdmissionPolicy
 import org.opendc.workflow.service.scheduler.job.ExecutionTimeJobOrderPolicy
 import org.opendc.workflow.service.scheduler.job.NullJobAdmissionPolicy
+import org.opendc.workflow.service.scheduler.job.SubmissionTimeJobOrderPolicy
 import org.opendc.workflow.service.scheduler.task.ExecutionTimeTaskOderPolicy
 import org.opendc.workflow.service.scheduler.task.NullTaskEligibilityPolicy
+import org.opendc.workflow.service.scheduler.task.SubmissionTimeTaskOrderPolicy
 import org.opendc.workflow.workload.WorkflowSchedulerSpec
 import org.opendc.workflow.workload.WorkflowServiceHelper
 import org.opendc.workflow.workload.toJobs
@@ -79,6 +81,7 @@ internal class WorkflowServiceTest {
             "traceFormat" to "wtf",
             "numberJobs" to 200.toLong(),
         )
+        elopExtension(config)
 
         testTemplate(config)
     }
@@ -99,6 +102,7 @@ internal class WorkflowServiceTest {
             "traceFormat" to "wtf",
             "numberJobs" to 20.toLong(),
         )
+        elopExtension(config)
 
         testTemplate(config)
     }
@@ -119,6 +123,7 @@ internal class WorkflowServiceTest {
             "traceFormat" to "wtf",
             "numberJobs" to 20.toLong(),
         )
+        elopExtension(config)
 
         testTemplate(config)
     }
@@ -138,8 +143,18 @@ internal class WorkflowServiceTest {
             "traceFormat" to "wtf",
             "numberJobs" to 20.toLong(),
         )
+        elopExtension(config)
 
         testTemplate(config)
+    }
+
+    fun elopExtension(config : HashMap<String, Any>) {
+        val jobHostMapping = HashMap<JobState, Set<UUID>>()
+        val elopConfig = hashMapOf<String, Any>(
+            "filterSchedulerFilters" to listOf(ElopFilter(jobHostMapping)),
+            "jobHostMapping" to jobHostMapping
+        )
+        config.putAll(elopConfig)
     }
 
     /**
@@ -152,11 +167,20 @@ internal class WorkflowServiceTest {
      * "tracePath" (String) - path to the trace to run
      * "traceFormat" (String) - format of the trace to run
      * "numberJobs" (Long) - number of jobs in trace (used for assertions at end of test)
+     *
+     * OPTIONAL:
+     * "filterSchedulerFilters" (List<HostFilter>) - list of filters for hosts to add to the standard set we are using
+     * "jobHostMapping" (HashMap<JobState, Set<UUID>>) - mapping betweeen jobs and assigned hosts for them. Used in ELOP to exchange data between J1 and HostFilter
      */
     fun testTemplate(config : HashMap<String, Any>) = runBlockingSimulation {
+        val hostFilters = mutableListOf(ComputeFilter(), VCpuFilter(1.0), RamFilter(1.0))
+        if (config["filterSchedulerFilters"] != null) {
+            hostFilters.addAll(config["filterSchedulerFilters"] as List<HostFilter>)
+        }
+
         // Configure the ComputeService that is responsible for mapping virtual machines onto physical hosts
         val computeScheduler = FilterScheduler(
-            filters = listOf(ComputeFilter(), VCpuFilter(1.0), RamFilter(1.0)),
+            filters = hostFilters,
             weighers = listOf(VCpuWeigher(1.0, multiplier = 1.0))
         )
         val computeHelper = ComputeServiceHelper(coroutineContext, clock, computeScheduler, schedulingQuantum = Duration.ofSeconds(1))
@@ -170,20 +194,28 @@ internal class WorkflowServiceTest {
         tasksOverTimeFile.appendLine("Time (s),Tasks #")
 
         val hostFns = config["host_function"] as List<Pair<Int, (Int) -> HostSpec>>
+        var offSet = 0
         for (elem in hostFns) {
             val hostCount = elem.first
             val hostFn = elem.second
-            repeat(hostCount) { computeHelper.registerHost(hostFn(it)) }
+            repeat(hostCount) { computeHelper.registerHost(hostFn(it+offSet)) }
+            offSet += hostCount
         }
         // Configure the WorkflowService that is responsible for scheduling the workflow tasks onto machines
         val workflowScheduler = WorkflowSchedulerSpec(
             schedulingQuantum = Duration.ofMillis(100),
-            jobAdmissionPolicy = NullJobAdmissionPolicy,
-            jobOrderPolicy = ExecutionTimeJobOrderPolicy(),
+            jobAdmissionPolicy = ElopAdmissionPolicy(),
+            jobOrderPolicy = SubmissionTimeJobOrderPolicy(),
             taskEligibilityPolicy = NullTaskEligibilityPolicy,
-            taskOrderPolicy = ExecutionTimeTaskOderPolicy(),
+            taskOrderPolicy = SubmissionTimeTaskOrderPolicy()
         )
         val workflowHelper = WorkflowServiceHelper(coroutineContext, clock, computeHelper.service.newClient(), workflowScheduler)
+
+        if (config["jobHostMapping"] != null) {
+            workflowHelper.service.hosts = computeHelper.hosts.map { Pair(it.uid, it.model.cpuCount) }.toMutableSet()
+            workflowHelper.service.jobHostMapping = config["jobHostMapping"] as HashMap<JobState, Set<UUID>>
+        }
+
         val metricReader = CoroutineMetricReader(this, computeHelper.producers, object : ComputeMetricExporter(){
             var energyUsage = 0.0
             var cpuUsage = 0.0
