@@ -390,6 +390,7 @@ public class WorkflowServiceImpl(
                 task.startedAt = clock.millis()
                 (task.task.metadata as MutableMap<String, Any>)["startedAt"] = task.startedAt
                 runningTasks.add(1)
+                println("${task.startedAt}: ${task.task.uid} started at host ${task.task.metadata["assigned-host"]}.")
                 rootListener.taskStarted(task)
             }
             ServerState.TERMINATED, ServerState.ERROR -> {
@@ -406,6 +407,8 @@ public class WorkflowServiceImpl(
                 (task.task.metadata as MutableMap<String, Any>)["finishedAt"] = task.finishedAt
                 job.tasks.remove(task)
                 activeTasks -= task
+                println("${task.finishedAt}: ${task.task.uid} finished.")
+                System.out.flush()
 
                 runningTasks.add(-1)
                 finishedTasks.add(1)
