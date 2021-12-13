@@ -116,7 +116,7 @@ internal class WorkflowServiceTest {
 
             override fun record(reader: HostTableReader){
                 cpuUsage = reader.cpuUsage
-                energyUsage = reader.powerUsage
+                energyUsage = reader.powerTotal
                     metricsFile.appendLine("${reader.guestsRunning},$cpuUsage,$energyUsage")
 //                    println("${reader.guestsRunning},$cpuUsage,$energyUsage")
 
@@ -219,7 +219,7 @@ internal class WorkflowServiceTest {
 
             override fun record(reader: HostTableReader){
                 cpuUsage = reader.cpuUsage
-                energyUsage = reader.powerUsage
+                energyUsage = reader.powerTotal
                 metricsFile.appendLine("${reader.guestsRunning},$cpuUsage,$energyUsage")
             }
         }, exportInterval = Duration.ofSeconds(10))
@@ -317,7 +317,7 @@ internal class WorkflowServiceTest {
 
             override fun record(reader: HostTableReader){
                 cpuUsage = reader.cpuUsage
-                energyUsage = reader.powerUsage
+                energyUsage = reader.powerTotal
                 metricsFile.appendLine("${reader.guestsRunning},$cpuUsage,$energyUsage")
             }
         }, exportInterval = Duration.ofSeconds(10))
@@ -415,7 +415,7 @@ internal class WorkflowServiceTest {
 
             override fun record(reader: HostTableReader){
                 cpuUsage = reader.cpuUsage
-                energyUsage = reader.powerUsage
+                energyUsage = reader.powerTotal
                 metricsFile.appendLine("${reader.guestsRunning},$cpuUsage,$energyUsage")
             }
         }, exportInterval = Duration.ofSeconds(10))
