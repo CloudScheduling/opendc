@@ -170,10 +170,12 @@ internal class WorkflowServiceTest {
         tasksOverTimeFile.appendLine("Time (s),Tasks #")
 
         val hostFns = config["host_function"] as List<Pair<Int, (Int) -> HostSpec>>
+        var offSet = 0
         for (elem in hostFns) {
             val hostCount = elem.first
             val hostFn = elem.second
-            repeat(hostCount) { computeHelper.registerHost(hostFn(it)) }
+            repeat(hostCount) { computeHelper.registerHost(hostFn(it+offSet)) }
+            offSet += hostCount
         }
         // Configure the WorkflowService that is responsible for scheduling the workflow tasks onto machines
         val workflowScheduler = WorkflowSchedulerSpec(
