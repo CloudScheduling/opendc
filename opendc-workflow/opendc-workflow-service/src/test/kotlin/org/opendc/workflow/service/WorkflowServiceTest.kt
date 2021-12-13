@@ -68,23 +68,23 @@ import kotlin.collections.HashMap
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 internal class WorkflowServiceTest {
     val basePath = System.getProperty("user.home") + "/OpenDC Test Automation/Min-Min"
+    val readOutInterval = 20
 
     @BeforeAll
     fun setup() {
         // create the folder
-        // val file = File(System.getProperty("user.home") + "/OpenDC Test Automation/Min-Min").mkdirs()
+        val file = File(System.getProperty("user.home") + "/OpenDC Test Automation/Min-Min").mkdirs()
     }
 
     @Test
     fun testHomo4() {
         val numHosts = 4
-        val file = File(System.getProperty("user.home") + "/OpenDC Test Automation/Min-Min").mkdirs()
         val config = hashMapOf<String, Any>(
             "path_metrics" to "$basePath/specTrace2_minMin_homo_scale4_metrics.csv",
             "path_makespan" to "$basePath/specTrace2_minMin_homo_scale4_makespan.csv",
             "path_tasksOverTime" to "$basePath/specTrace2_minMin_homo_scale4_taksOvertime.csv",
             "host_function" to listOf(Pair(numHosts, { id : Int -> createHomogenousHostSpec(id)})),
-            "metric_readoutMinutes" to 10.toLong(),
+            "metric_readoutMinutes" to readOutInterval.toLong(),
             "tracePath" to "/spec_trace-2_parquet",
             "traceFormat" to "wtf",
             "numberJobs" to 200.toLong(),
@@ -100,7 +100,7 @@ internal class WorkflowServiceTest {
             "path_makespan" to "$basePath/specTrace2_minMin_homo_scale8_makespan.csv",
             "path_tasksOverTime" to "$basePath/specTrace2_minMin_homo_scale8_taksOvertime.csv",
             "host_function" to listOf(Pair(numHosts, { id : Int -> createHomogenousHostSpec(id)})),
-            "metric_readoutMinutes" to 10.toLong(),
+            "metric_readoutMinutes" to readOutInterval.toLong(),
             "tracePath" to "/spec_trace-2_parquet",
             "traceFormat" to "wtf",
             "numberJobs" to 200.toLong(),
@@ -116,7 +116,7 @@ internal class WorkflowServiceTest {
             "path_makespan" to "$basePath/specTrace2_minMin_homo_scale16_makespan.csv",
             "path_tasksOverTime" to "$basePath/specTrace2_minMin_homo_scale16_taksOvertime.csv",
             "host_function" to listOf(Pair(numHosts, { id : Int -> createHomogenousHostSpec(id)})),
-            "metric_readoutMinutes" to 10.toLong(),
+            "metric_readoutMinutes" to readOutInterval.toLong(),
             "tracePath" to "/spec_trace-2_parquet",
             "traceFormat" to "wtf",
             "numberJobs" to 200.toLong(),
@@ -135,7 +135,7 @@ internal class WorkflowServiceTest {
                 Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec(id)}),
                 Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec2(id)}),
             ),
-            "metric_readoutMinutes" to 10.toLong(),
+            "metric_readoutMinutes" to readOutInterval.toLong(),
             "tracePath" to "/spec_trace-2_parquet",
             "traceFormat" to "wtf",
             "numberJobs" to 200.toLong(),
@@ -154,7 +154,7 @@ internal class WorkflowServiceTest {
                 Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec(id)}),
                 Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec2(id)}),
             ),
-            "metric_readoutMinutes" to 10.toLong(),
+            "metric_readoutMinutes" to readOutInterval.toLong(),
             "tracePath" to "/spec_trace-2_parquet",
             "traceFormat" to "wtf",
             "numberJobs" to 200.toLong(),
@@ -173,7 +173,7 @@ internal class WorkflowServiceTest {
                 Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec(id)}),
                 Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec2(id)}),
             ),
-            "metric_readoutMinutes" to 10.toLong(),
+            "metric_readoutMinutes" to readOutInterval.toLong(),
             "tracePath" to "/spec_trace-2_parquet",
             "traceFormat" to "wtf",
             "numberJobs" to 200.toLong(),
