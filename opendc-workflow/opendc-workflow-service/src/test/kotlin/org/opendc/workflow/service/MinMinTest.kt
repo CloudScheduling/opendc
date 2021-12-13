@@ -23,7 +23,6 @@ import org.opendc.workflow.service.internal.JobState
 import org.opendc.workflow.service.internal.TaskState
 import org.opendc.workflow.service.scheduler.job.NullJobAdmissionPolicy
 import org.opendc.workflow.service.scheduler.job.SubmissionTimeJobOrderPolicy
-import org.opendc.workflow.service.scheduler.task.TaskReadyEligibilityPolicy
 import org.opendc.workflow.service.scheduler.task.MinMinPolicy
 import org.opendc.workflow.service.scheduler.task.NullTaskEligibilityPolicy
 import org.opendc.workflow.workload.WorkflowSchedulerSpec
@@ -271,7 +270,7 @@ class MinMinTest {
 
         try {
             val trace = Trace.open(
-                Paths.get(checkNotNull(WorkflowServiceTest::class.java.getResource("/trace.gwf")).toURI()),
+                Paths.get(checkNotNull(WorkflowServiceTest_Florian::class.java.getResource("/trace.gwf")).toURI()),
                 format = "gwf"
             )
 
@@ -295,9 +294,9 @@ class MinMinTest {
         )
     }
 
-    private fun collectMetrics(metricProducer: MetricProducer): WorkflowServiceTest.WorkflowMetrics {
+    private fun collectMetrics(metricProducer: MetricProducer): WorkflowServiceTest_Florian.WorkflowMetrics {
         val metrics = metricProducer.collectAllMetrics().associateBy { it.name }
-        val res = WorkflowServiceTest.WorkflowMetrics()
+        val res = WorkflowServiceTest_Florian.WorkflowMetrics()
         res.jobsSubmitted = metrics["jobs.submitted"]?.longSumData?.points?.last()?.value ?: 0
         res.jobsActive = metrics["jobs.active"]?.longSumData?.points?.last()?.value ?: 0
         res.jobsFinished = metrics["jobs.finished"]?.longSumData?.points?.last()?.value ?: 0
