@@ -72,11 +72,11 @@ internal class WorkflowServiceTest {
     fun testTraceHomoUnscaled() {
         val numHosts = 4
         val config = hashMapOf<String, Any>(
-            "path_metrics" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-metrics-homo-unscaled.csv",
-            "path_makespan" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-makespan-homo-unscaled.csv",
-            "path_tasksOverTime" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-tasksOverTime-homo-unscaled.csv",
+            "path_metrics" to System.getProperty("user.home") + "/OpenDC Test Automation/ELOP"+"/elop-metrics-homo-unscaled.csv",
+            "path_makespan" to System.getProperty("user.home") + "/OpenDC Test Automation/ELOP"+"/elop-makespan-homo-unscaled.csv",
+            "path_tasksOverTime" to System.getProperty("user.home") + "/OpenDC Test Automation/ELOP"+"/elop-tasksOverTime-homo-unscaled.csv",
             "host_function" to listOf(Pair(numHosts, { id : Int -> createHomogenousHostSpec(id)})),
-            "metric_readoutMinutes" to 1.toLong(),
+            "metric_readoutMinutes" to 10.toLong(),
             "tracePath" to "/spec_trace-2_parquet",
             "traceFormat" to "wtf",
             "numberJobs" to 200.toLong(),
@@ -90,17 +90,17 @@ internal class WorkflowServiceTest {
     fun testTraceHeteroUnscaled() {
         val numHosts = 4
         val config = hashMapOf<String, Any>(
-            "path_metrics" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-metrics-hetero-unscaled.csv",
-            "path_makespan" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-makespan-hetero-unscaled.csv",
-            "path_tasksOverTime" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-tasksOverTime-hetero-unscaled.csv",
+            "path_metrics" to System.getProperty("user.home") + "/OpenDC Test Automation/ELOP"+"/elop-metrics-hetero-unscaled.csv",
+            "path_makespan" to System.getProperty("user.home") + "/OpenDC Test Automation/ELOP"+"/elop-makespan-hetero-unscaled.csv",
+            "path_tasksOverTime" to System.getProperty("user.home") + "/OpenDC Test Automation/ELOP"+"/elop-tasksOverTime-hetero-unscaled.csv",
             "host_function" to listOf(
                 Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec(id)}),
                 Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec2(id)}),
             ),
             "metric_readoutMinutes" to 10.toLong(),
-            "tracePath" to "/askalon-new_ee11_parquet",
+            "tracePath" to "/spec_trace-2_parquet",
             "traceFormat" to "wtf",
-            "numberJobs" to 20.toLong(),
+            "numberJobs" to 200.toLong(),
         )
         elopExtension(config)
 
@@ -111,17 +111,17 @@ internal class WorkflowServiceTest {
     fun testTraceHeteroScaled() {
         val numHosts = 8
         val config = hashMapOf<String, Any>(
-            "path_metrics" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-metrics-homo-scaled.csv",
-            "path_makespan" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-makespan-homo-scaled.csv",
-            "path_tasksOverTime" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-tasksOverTime-homo-scaled.csv",
+            "path_metrics" to System.getProperty("user.home") + "/OpenDC Test Automation/ELOP"+"/elop-metrics-homo-scaled.csv",
+            "path_makespan" to System.getProperty("user.home") + "/OpenDC Test Automation/ELOP"+"/elop-makespan-homo-scaled.csv",
+            "path_tasksOverTime" to System.getProperty("user.home") + "/OpenDC Test Automation/ELOP"+"/elop-tasksOverTime-homo-scaled.csv",
             "host_function" to listOf(
                 Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec(id)}),
                 Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec2(id)}),
             ),
             "metric_readoutMinutes" to 10.toLong(),
-            "tracePath" to "/askalon-new_ee11_parquet",
+            "tracePath" to "/spec_trace-2_parquet",
             "traceFormat" to "wtf",
-            "numberJobs" to 20.toLong(),
+            "numberJobs" to 200.toLong(),
         )
         elopExtension(config)
 
@@ -132,16 +132,16 @@ internal class WorkflowServiceTest {
     fun testTraceHomoScaled() {
         val numHosts = 8
         val config = hashMapOf<String, Any>(
-            "path_metrics" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-metrics-hetero-scaled.csv",
-            "path_makespan" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-makespan-hetero-scaled.csv",
-            "path_tasksOverTime" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-tasksOverTime-hetero-scaled.csv",
+            "path_metrics" to System.getProperty("user.home") + "/OpenDC Test Automation/ELOP"+"/elop-metrics-hetero-scaled.csv",
+            "path_makespan" to System.getProperty("user.home") + "/OpenDC Test Automation/ELOP"+"/elop-makespan-hetero-scaled.csv",
+            "path_tasksOverTime" to System.getProperty("user.home") + "/OpenDC Test Automation/ELOP"+"/elop-tasksOverTime-hetero-scaled.csv",
             "host_function" to listOf(
                 Pair(numHosts, { id : Int -> createHomogenousHostSpec(id)}),
             ),
             "metric_readoutMinutes" to 10.toLong(),
-            "tracePath" to "/askalon-new_ee11_parquet",
+            "tracePath" to "/spec_trace-2_parquet",
             "traceFormat" to "wtf",
-            "numberJobs" to 20.toLong(),
+            "numberJobs" to 200.toLong(),
         )
         elopExtension(config)
 
