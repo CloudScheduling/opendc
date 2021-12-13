@@ -24,6 +24,7 @@ package org.opendc.workflow.service
 
 import io.opentelemetry.sdk.metrics.export.MetricProducer
 import kotlinx.coroutines.coroutineScope
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.opendc.compute.service.scheduler.AssignmentExecutionScheduler
@@ -57,6 +58,7 @@ import java.io.PrintWriter
  * Integration test suite for the [WorkflowService].
  */
 @DisplayName("MinMinTraceTest")
+@Disabled
 internal class MinMinTraceTest {
     /**
      * A large integration test where we check whether all tasks in some trace are executed correctly.
