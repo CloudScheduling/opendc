@@ -24,10 +24,8 @@ package org.opendc.workflow.service
 
 import io.opentelemetry.sdk.metrics.export.MetricProducer
 import kotlinx.coroutines.coroutineScope
+import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.DisplayName
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertAll
 import org.opendc.compute.service.scheduler.FilterScheduler
 import org.opendc.compute.service.scheduler.filters.*
 import org.opendc.compute.service.scheduler.weights.VCpuWeigher
@@ -56,6 +54,7 @@ import org.opendc.workflow.service.scheduler.task.SubmissionTimeTaskOrderPolicy
 import org.opendc.workflow.workload.WorkflowSchedulerSpec
 import org.opendc.workflow.workload.WorkflowServiceHelper
 import org.opendc.workflow.workload.toJobs
+import java.io.File
 import java.nio.file.Paths
 import java.time.Duration
 import java.util.*
@@ -67,14 +66,23 @@ import kotlin.collections.HashMap
  * It is pretty easy: create a new test by copying a test and modify the parameters in the config.
  */
 @DisplayName("WorkflowService")
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 internal class WorkflowServiceTest {
+    val basePath = System.getProperty("user.home") + "/OpenDC Test Automation/ELOP"
+
+    @BeforeAll
+    fun setup() {
+        // create the folder
+        val file = File(System.getProperty("user.home") + "/OpenDC Test Automation/ELOP").mkdirs()
+    }
+
     @Test
     fun testHomo4() {
         val numHosts = 4
         val config = hashMapOf<String, Any>(
-            "path_metrics" to System.getProperty("user.home") + "/OpenDC Test Automation/ELOP"+"/specTrace2_elop_homo_scale4_metrics.csv",
-            "path_makespan" to System.getProperty("user.home") + "/OpenDC Test Automation/ELOP"+"/specTrace2_elop_homo_scale4_makespan.csv",
-            "path_tasksOverTime" to System.getProperty("user.home") + "/OpenDC Test Automation/ELOP"+"/specTrace2_elop_homo_scale4_taksOvertime.csv",
+            "path_metrics" to "$basePath/specTrace2_elop_homo_scale4_metrics.csv",
+            "path_makespan" to "$basePath/specTrace2_elop_homo_scale4_makespan.csv",
+            "path_tasksOverTime" to "$basePath/specTrace2_elop_homo_scale4_taksOvertime.csv",
             "host_function" to listOf(Pair(numHosts, { id : Int -> createHomogenousHostSpec(id)})),
             "metric_readoutMinutes" to 10.toLong(),
             "tracePath" to "/spec_trace-2_parquet",
@@ -90,9 +98,9 @@ internal class WorkflowServiceTest {
     fun testHomo8() {
         val numHosts = 8
         val config = hashMapOf<String, Any>(
-            "path_metrics" to System.getProperty("user.home") + "/OpenDC Test Automation/ELOP"+"/specTrace2_elop_homo_scale8_metrics.csv",
-            "path_makespan" to System.getProperty("user.home") + "/OpenDC Test Automation/ELOP"+"/specTrace2_elop_homo_scale8_makespan.csv",
-            "path_tasksOverTime" to System.getProperty("user.home") + "/OpenDC Test Automation/ELOP"+"/specTrace2_elop_homo_scale8_taksOvertime.csv",
+            "path_metrics" to "$basePath/specTrace2_elop_homo_scale8_metrics.csv",
+            "path_makespan" to "$basePath/specTrace2_elop_homo_scale8_makespan.csv",
+            "path_tasksOverTime" to "$basePath/specTrace2_elop_homo_scale8_taksOvertime.csv",
             "host_function" to listOf(Pair(numHosts, { id : Int -> createHomogenousHostSpec(id)})),
             "metric_readoutMinutes" to 10.toLong(),
             "tracePath" to "/spec_trace-2_parquet",
@@ -108,9 +116,9 @@ internal class WorkflowServiceTest {
     fun testHomo16() {
         val numHosts = 16
         val config = hashMapOf<String, Any>(
-            "path_metrics" to System.getProperty("user.home") + "/OpenDC Test Automation/ELOP"+"/specTrace2_elop_homo_scale16_metrics.csv",
-            "path_makespan" to System.getProperty("user.home") + "/OpenDC Test Automation/ELOP"+"/specTrace2_elop_homo_scale16_makespan.csv",
-            "path_tasksOverTime" to System.getProperty("user.home") + "/OpenDC Test Automation/ELOP"+"/specTrace2_elop_homo_scale16_taksOvertime.csv",
+            "path_metrics" to "$basePath/specTrace2_elop_homo_scale16_metrics.csv",
+            "path_makespan" to "$basePath/specTrace2_elop_homo_scale16_makespan.csv",
+            "path_tasksOverTime" to "$basePath/specTrace2_elop_homo_scale16_taksOvertime.csv",
             "host_function" to listOf(Pair(numHosts, { id : Int -> createHomogenousHostSpec(id)})),
             "metric_readoutMinutes" to 10.toLong(),
             "tracePath" to "/spec_trace-2_parquet",
@@ -126,9 +134,9 @@ internal class WorkflowServiceTest {
     fun testHetro4() {
         val numHosts = 4
         val config = hashMapOf<String, Any>(
-            "path_metrics" to System.getProperty("user.home") + "/OpenDC Test Automation/ELOP"+"/specTrace2_elop_hetro_scale4_metrics.csv",
-            "path_makespan" to System.getProperty("user.home") + "/OpenDC Test Automation/ELOP"+"/specTrace2_elop_hetro_scale4_makespan.csv",
-            "path_tasksOverTime" to System.getProperty("user.home") + "/OpenDC Test Automation/ELOP"+"/specTrace2_elop_hetro_scale4_taksOvertime.csv",
+            "path_metrics" to "$basePath/specTrace2_elop_hetro_scale4_metrics.csv",
+            "path_makespan" to "$basePath/specTrace2_elop_hetro_scale4_makespan.csv",
+            "path_tasksOverTime" to "$basePath/specTrace2_elop_hetro_scale4_taksOvertime.csv",
             "host_function" to listOf(
                 Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec(id)}),
                 Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec2(id)}),
@@ -147,9 +155,9 @@ internal class WorkflowServiceTest {
     fun testHetro8() {
         val numHosts = 8
         val config = hashMapOf<String, Any>(
-            "path_metrics" to System.getProperty("user.home") + "/OpenDC Test Automation/ELOP"+"/specTrace2_elop_hetro_scale8_metrics.csv",
-            "path_makespan" to System.getProperty("user.home") + "/OpenDC Test Automation/ELOP"+"/specTrace2_elop_hetro_scale8_makespan.csv",
-            "path_tasksOverTime" to System.getProperty("user.home") + "/OpenDC Test Automation/ELOP"+"/specTrace2_elop_hetro_scale8_taksOvertime.csv",
+            "path_metrics" to "$basePath/specTrace2_elop_hetro_scale8_metrics.csv",
+            "path_makespan" to "$basePath/specTrace2_elop_hetro_scale8_makespan.csv",
+            "path_tasksOverTime" to "$basePath/specTrace2_elop_hetro_scale8_taksOvertime.csv",
             "host_function" to listOf(
                 Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec(id)}),
                 Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec2(id)}),
@@ -168,9 +176,9 @@ internal class WorkflowServiceTest {
     fun testHetro16() {
         val numHosts = 16
         val config = hashMapOf<String, Any>(
-            "path_metrics" to System.getProperty("user.home") + "/OpenDC Test Automation/ELOP"+"/specTrace2_elop_hetro_scale16_metrics.csv",
-            "path_makespan" to System.getProperty("user.home") + "/OpenDC Test Automation/ELOP"+"/specTrace2_elop_hetro_scale16_makespan.csv",
-            "path_tasksOverTime" to System.getProperty("user.home") + "/OpenDC Test Automation/ELOP"+"/specTrace2_elop_hetro_scale16_taksOvertime.csv",
+            "path_metrics" to "$basePath/specTrace2_elop_hetro_scale16_metrics.csv",
+            "path_makespan" to "$basePath/specTrace2_elop_hetro_scale16_makespan.csv",
+            "path_tasksOverTime" to "$basePath/specTrace2_elop_hetro_scale16_taksOvertime.csv",
             "host_function" to listOf(
                 Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec(id)}),
                 Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec2(id)}),
