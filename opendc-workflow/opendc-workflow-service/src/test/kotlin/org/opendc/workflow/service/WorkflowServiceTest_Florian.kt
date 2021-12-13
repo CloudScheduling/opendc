@@ -26,6 +26,7 @@ import io.opentelemetry.sdk.metrics.export.MetricProducer
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
@@ -65,6 +66,7 @@ import java.io.PrintWriter
  * Integration test suite for the [WorkflowService].
  */
 @DisplayName("WorkflowService")
+@Disabled
 internal class WorkflowServiceTest_Florian {
     /**
      * A large integration test where we check whether all tasks in some trace are executed correctly.

@@ -47,8 +47,8 @@ import org.opendc.telemetry.sdk.metrics.export.CoroutineMetricReader
 import org.opendc.trace.Trace
 import org.opendc.workflow.service.scheduler.job.NullJobAdmissionPolicy
 import org.opendc.workflow.service.scheduler.job.SubmissionTimeJobOrderPolicy
-import org.opendc.workflow.service.scheduler.task.NullTaskEligibilityPolicy
-import org.opendc.workflow.service.scheduler.task.SubmissionTimeTaskOrderPolicy
+import org.opendc.workflow.service.scheduler.task.MinMinPolicy
+import org.opendc.workflow.service.scheduler.task.TaskReadyEligibilityPolicy
 import org.opendc.workflow.workload.WorkflowSchedulerSpec
 import org.opendc.workflow.workload.WorkflowServiceHelper
 import org.opendc.workflow.workload.toJobs
@@ -208,19 +208,24 @@ internal class WorkflowServiceTest {
 
         val hostFns = config["host_function"] as List<Pair<Int, (Int) -> HostSpec>>
         var offSet = 0
+        val hostSpecs = HashSet<HostSpec>()
         for (elem in hostFns) {
             val hostCount = elem.first
             val hostFn = elem.second
-            repeat(hostCount) { computeHelper.registerHost(hostFn(it+offSet)) }
+            repeat(hostCount) { hostSpecs.add(hostFn(it+offSet)) }
             offSet += hostCount
         }
+        for (elem in hostSpecs) {
+            computeHelper.registerHost(elem)
+        }
+
         // Configure the WorkflowService that is responsible for scheduling the workflow tasks onto machines
         val workflowScheduler = WorkflowSchedulerSpec(
             schedulingQuantum = Duration.ofMillis(100),
             jobAdmissionPolicy = NullJobAdmissionPolicy,
             jobOrderPolicy = SubmissionTimeJobOrderPolicy(),
-            taskEligibilityPolicy = NullTaskEligibilityPolicy,
-            taskOrderPolicy = SubmissionTimeTaskOrderPolicy(),
+            taskEligibilityPolicy = TaskReadyEligibilityPolicy(),
+            taskOrderPolicy = MinMinPolicy(hostSpecs),
         )
         val workflowHelper = WorkflowServiceHelper(coroutineContext, clock, computeHelper.service.newClient(), workflowScheduler)
         val metricReader = CoroutineMetricReader(this, computeHelper.producers, object : ComputeMetricExporter(){
