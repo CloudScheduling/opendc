@@ -66,11 +66,6 @@ import kotlin.collections.HashMap
  */
 @DisplayName("WorkflowService")
 internal class WorkflowServiceTest {
-    /**
-     * A large integration test where we check whether all tasks in some trace are executed correctly.
-     */
-
-
     @Test
     fun testTraceHomoUnscaled() {
         val numHosts = 4
@@ -147,6 +142,17 @@ internal class WorkflowServiceTest {
         testTemplate(config)
     }
 
+    /**
+     * used variables:
+     * "path_metrics" (String) - path to csv file in which the metrics shall be stored
+     * "path_makespan" (String) - path to csv file in which the makespan shall be stored
+     * "path_tasksOverTime" (String) - path to csv file in which the tasks over time shall be stored
+     * "host_function" (List<Pair<Int, (Int) -> HostSpec>>) - list of all hosts that shall be created with quantify (first elem in pair) and function with which hosts are created (2nd elem in pair)
+     * "metric_readoutMinutes" (Long) - determines the interval in (OpenDC) minutes in which metrics are written to a file
+     * "tracePath" (String) - path to the trace to run
+     * "traceFormat" (String) - format of the trace to run
+     * "numberJobs" (Long) - number of jobs in trace (used for assertions at end of test)
+     */
     fun testTemplate(config : HashMap<String, Any>) = runBlockingSimulation {
         // Configure the ComputeService that is responsible for mapping virtual machines onto physical hosts
         val computeScheduler = FilterScheduler(
@@ -178,7 +184,6 @@ internal class WorkflowServiceTest {
             taskOrderPolicy = ExecutionTimeTaskOderPolicy(),
         )
         val workflowHelper = WorkflowServiceHelper(coroutineContext, clock, computeHelper.service.newClient(), workflowScheduler)
-
         val metricReader = CoroutineMetricReader(this, computeHelper.producers, object : ComputeMetricExporter(){
             var energyUsage = 0.0
             var cpuUsage = 0.0
@@ -195,9 +200,7 @@ internal class WorkflowServiceTest {
 
         try {
             val trace = Trace.open(
-//                Paths.get(checkNotNull(WorkflowServiceTest::class.java.getResource("/askalon-new_ee11_parquet")).toURI()),
                 Paths.get(checkNotNull(WorkflowServiceTest::class.java.getResource(config["tracePath"] as String)).toURI()),
-//                Paths.get(checkNotNull(WorkflowServiceTest::class.java.getResource("/askalon-new_ee17_parquet")).toURI()),
                 format = config["traceFormat"] as String
             )
 
