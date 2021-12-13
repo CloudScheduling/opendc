@@ -210,6 +210,7 @@ public class WorkflowServiceImpl(
     override suspend fun invoke(job: Job): Unit = suspendCancellableCoroutine { cont ->
         // J1 Incoming Jobs
         val jobInstance = JobState(job, clock.millis(), cont)
+        job.metadata.put("submittedAt", jobInstance.submittedAt)
         val instances = job.tasks.associateWith {
             TaskState(jobInstance, it)
         }
@@ -389,6 +390,7 @@ public class WorkflowServiceImpl(
                 task.startedAt = clock.millis()
                 task.task.metadata.put("startedAt", task.startedAt)
                 runningTasks.add(1)
+                println("${task.startedAt}: ${task.task.uid} started at host ${task.task.metadata["assigned-host"]}.")
                 rootListener.taskStarted(task)
             }
             ServerState.TERMINATED, ServerState.ERROR -> {
@@ -405,6 +407,8 @@ public class WorkflowServiceImpl(
                 task.task.metadata.put("finishedAt", task.finishedAt)
                 job.tasks.remove(task)
                 activeTasks -= task
+                println("${task.finishedAt}: ${task.task.uid} finished.")
+                System.out.flush()
 
                 runningTasks.add(-1)
                 finishedTasks.add(1)

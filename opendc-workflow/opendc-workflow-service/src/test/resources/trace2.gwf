@@ -1,0 +1,6 @@
+WorkflowID, JobID     , SubmitTime, RunTime   , NProcs    , ReqNProcs , Dependencies
+0         , 1         , 0         , 30        , 1         , 1         ,
+0         , 2         , 10        , 45        , 1         , 1         , 1
+0         , 3         , 10        , 50        , 1         , 1         , 1
+0         , 4         , 10        , 30        , 1         , 1         , 2 3
+1         , 5         , 600       , 30        , 1         , 1         ,
