@@ -58,9 +58,11 @@ import java.nio.file.Paths
 import java.time.Duration
 import java.util.*
 import java.io.PrintWriter
+import kotlin.collections.HashMap
 
 /**
  * Integration test suite for the [WorkflowService].
+ * It is pretty easy: create a new test by copying a test and modify the parameters in the config.
  */
 @DisplayName("WorkflowService")
 internal class WorkflowServiceTest {
@@ -68,37 +70,105 @@ internal class WorkflowServiceTest {
      * A large integration test where we check whether all tasks in some trace are executed correctly.
      */
 
-    fun main(args: Array<String>) {
-        testTraceHomoUnscaled()
-        testTraceHeteroUnscaled()
-        testTraceHeteroScaled()
-        testTraceHomoScaled()
+
+    @Test
+    fun testTraceHomoUnscaled() {
+        val numHosts = 4
+        val config = hashMapOf<String, Any>(
+            "path_metrics" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-metrics-homo-unscaled.csv",
+            "path_makespan" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-makespan-homo-unscaled.csv",
+            "path_tasksOverTime" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-tasksOverTime-homo-unscaled.csv",
+            "host_function" to listOf(Pair(numHosts, { id : Int -> createHomogenousHostSpec(id)})),
+            "metric_readoutMinutes" to 1.toLong(),
+            "tracePath" to "/spec_trace-2_parquet",
+            "traceFormat" to "wtf",
+            "numberJobs" to 200.toLong(),
+        )
+        Pair(4, { id : Int -> createHomogenousHostSpec(id)})
+        testTemplate(config)
     }
 
     @Test
-    fun testTraceHomoUnscaled() = runBlockingSimulation {
+    fun testTraceHeteroUnscaled() {
+        val numHosts = 4
+        val config = hashMapOf<String, Any>(
+            "path_metrics" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-metrics-hetero-unscaled.csv",
+            "path_makespan" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-makespan-hetero-unscaled.csv",
+            "path_tasksOverTime" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-tasksOverTime-hetero-unscaled.csv",
+            "host_function" to listOf(
+                Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec(id)}),
+                Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec2(id)}),
+            ),
+            "metric_readoutMinutes" to 10.toLong(),
+            "tracePath" to "/askalon-new_ee11_parquet",
+            "traceFormat" to "wtf",
+            "numberJobs" to 20.toLong(),
+        )
+
+        testTemplate(config)
+    }
+
+    @Test
+    fun testTraceHeteroScaled() {
+        val numHosts = 8
+        val config = hashMapOf<String, Any>(
+            "path_metrics" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-metrics-homo-scaled.csv",
+            "path_makespan" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-makespan-homo-scaled.csv",
+            "path_tasksOverTime" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-tasksOverTime-homo-scaled.csv",
+            "host_function" to listOf(
+                Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec(id)}),
+                Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec2(id)}),
+            ),
+            "metric_readoutMinutes" to 10.toLong(),
+            "tracePath" to "/askalon-new_ee11_parquet",
+            "traceFormat" to "wtf",
+            "numberJobs" to 20.toLong(),
+        )
+
+        testTemplate(config)
+    }
+
+    @Test
+    fun testTraceHomoScaled() {
+        val numHosts = 8
+        val config = hashMapOf<String, Any>(
+            "path_metrics" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-metrics-hetero-scaled.csv",
+            "path_makespan" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-makespan-hetero-scaled.csv",
+            "path_tasksOverTime" to System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-tasksOverTime-hetero-scaled.csv",
+            "host_function" to listOf(
+                Pair(numHosts, { id : Int -> createHomogenousHostSpec(id)}),
+            ),
+            "metric_readoutMinutes" to 10.toLong(),
+            "tracePath" to "/askalon-new_ee11_parquet",
+            "traceFormat" to "wtf",
+            "numberJobs" to 20.toLong(),
+        )
+
+        testTemplate(config)
+    }
+
+    fun testTemplate(config : HashMap<String, Any>) = runBlockingSimulation {
         // Configure the ComputeService that is responsible for mapping virtual machines onto physical hosts
-        val HOST_COUNT = 4
         val computeScheduler = FilterScheduler(
             filters = listOf(ComputeFilter(), VCpuFilter(1.0), RamFilter(1.0)),
             weighers = listOf(VCpuWeigher(1.0, multiplier = 1.0))
         )
         val computeHelper = ComputeServiceHelper(coroutineContext, clock, computeScheduler, schedulingQuantum = Duration.ofSeconds(1))
 
-        val metricsFile = PrintWriter(System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-metrics-homo-unscaled.csv")
-        val makespanFile =  PrintWriter(System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-makespan-homo-unscaled.csv")
-        val tasksOverTimeFile = PrintWriter(System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-tasksOverTime-homo-unscaled.csv")
-
-//        val metricsFile = PrintWriter("C:/scul/maxmin-metrics-homo-unscaled.csv")
-//        val makespanFile =  PrintWriter("C:/scul/maxmin-makespan-homo-unscaled.csv")
-//        val tasksOverTimeFile = PrintWriter("C:/scul/maxmin-tasksOverTime-homo-unscaled.csv")
+        val metricsFile = PrintWriter(config["path_metrics"] as String)
+        val makespanFile =  PrintWriter(config["path_makespan"] as String)
+        val tasksOverTimeFile = PrintWriter(config["path_tasksOverTime"] as String)
 
         metricsFile.appendLine("No# Tasks running,cpuUsage(CPU usage of all CPUs of the host in MHz),energyUsage(Power usage of the host in W)")
         makespanFile.appendLine("Makespan (s),Workflow Response time (s)")
         tasksOverTimeFile.appendLine("Time (s),Tasks #")
 
-
-        repeat(HOST_COUNT) { computeHelper.registerHost(createHomogenousHostSpec(it)) }
+        val hostFns = config["host_function"] as List<Pair<Int, (Int) -> HostSpec>>
+        for (elem in hostFns) {
+            val hostCount = elem.first
+            val hostFn = elem.second
+            repeat(hostCount) { computeHelper.registerHost(hostFn(it)) }
+        }
         // Configure the WorkflowService that is responsible for scheduling the workflow tasks onto machines
         val workflowScheduler = WorkflowSchedulerSpec(
             schedulingQuantum = Duration.ofMillis(100),
@@ -117,18 +187,18 @@ internal class WorkflowServiceTest {
             override fun record(reader: HostTableReader){
                 cpuUsage = reader.cpuUsage
                 energyUsage = reader.powerTotal
-                    metricsFile.appendLine("${reader.guestsRunning},$cpuUsage,$energyUsage")
+                metricsFile.appendLine("${reader.guestsRunning},$cpuUsage,$energyUsage")
 //                    println("${reader.guestsRunning},$cpuUsage,$energyUsage")
 
             }
-        }, exportInterval = Duration.ofMinutes(1))
+        }, exportInterval = Duration.ofMinutes(config["metric_readoutMinutes"] as Long))
 
         try {
             val trace = Trace.open(
 //                Paths.get(checkNotNull(WorkflowServiceTest::class.java.getResource("/askalon-new_ee11_parquet")).toURI()),
-                Paths.get(checkNotNull(WorkflowServiceTest::class.java.getResource("/spec_trace-2_parquet")).toURI()),
+                Paths.get(checkNotNull(WorkflowServiceTest::class.java.getResource(config["tracePath"] as String)).toURI()),
 //                Paths.get(checkNotNull(WorkflowServiceTest::class.java.getResource("/askalon-new_ee17_parquet")).toURI()),
-                format = "wtf"
+                format = config["traceFormat"] as String
             )
 
             coroutineScope {
@@ -176,308 +246,13 @@ internal class WorkflowServiceTest {
         print(metrics)
 
         assertAll(
-            { assertEquals(200, metrics.jobsSubmitted, "No jobs submitted") },
+            { assertEquals(config["numberJobs"] as Long, metrics.jobsSubmitted, "No jobs submitted") },
             { assertEquals(0, metrics.jobsActive, "Not all submitted jobs started") },
             { assertEquals(metrics.jobsSubmitted, metrics.jobsFinished, "Not all started jobs finished") },
             { assertEquals(0, metrics.tasksActive, "Not all started tasks finished") },
             { assertEquals(metrics.tasksSubmitted, metrics.tasksFinished, "Not all started tasks finished") },
         )
     }
-    @Test
-    fun testTraceHeteroUnscaled() = runBlockingSimulation {
-        // Configure the ComputeService that is responsible for mapping virtual machines onto physical hosts
-        val HOST_COUNT = 4
-        val computeScheduler = FilterScheduler(
-            filters = listOf(ComputeFilter(), VCpuFilter(1.0), RamFilter(1.0)),
-            weighers = listOf(VCpuWeigher(1.0, multiplier = 1.0))
-        )
-        val computeHelper = ComputeServiceHelper(coroutineContext, clock, computeScheduler, schedulingQuantum = Duration.ofSeconds(1))
-
-        val metricsFile = PrintWriter(System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-metrics-hetero-unscaled.csv")
-        val makespanFile = PrintWriter(System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-makespan-hetero-unscaled.csv")
-        val tasksOverTimeFile = PrintWriter(System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-tasksOverTime-hetero-unscaled.csv")
-        metricsFile.appendLine("No# Tasks running,cpuUsage(CPU usage of all CPUs of the host in MHz),energyUsage(Power usage of the host in W)")
-        makespanFile.appendLine("Makespan (s),Workflow Response time (s)")
-        tasksOverTimeFile.appendLine("Time (s),Tasks #")
-
-        repeat(HOST_COUNT/2) { computeHelper.registerHost(createHomogenousHostSpec(it)) }
-        repeat(HOST_COUNT/2) { computeHelper.registerHost(createHomogenousHostSpec2(it)) }
-        // Configure the WorkflowService that is responsible for scheduling the workflow tasks onto machines
-        val workflowScheduler = WorkflowSchedulerSpec(
-            schedulingQuantum = Duration.ofMillis(100),
-            jobAdmissionPolicy = NullJobAdmissionPolicy,
-            jobOrderPolicy = ExecutionTimeJobOrderPolicy(),
-            taskEligibilityPolicy = NullTaskEligibilityPolicy,
-            taskOrderPolicy = ExecutionTimeTaskOderPolicy(),
-        )
-        val workflowHelper = WorkflowServiceHelper(coroutineContext, clock, computeHelper.service.newClient(), workflowScheduler)
-
-        val metricReader = CoroutineMetricReader(this, computeHelper.producers, object : ComputeMetricExporter(){
-            var energyUsage = 0.0
-            var cpuUsage = 0.0
-            //Makespan
-
-            override fun record(reader: HostTableReader){
-                cpuUsage = reader.cpuUsage
-                energyUsage = reader.powerTotal
-                metricsFile.appendLine("${reader.guestsRunning},$cpuUsage,$energyUsage")
-            }
-        }, exportInterval = Duration.ofSeconds(10))
-
-        try {
-            val trace = Trace.open(
-                Paths.get(checkNotNull(WorkflowServiceTest::class.java.getResource("/askalon-new_ee11_parquet")).toURI()),
-                format = "wtf"
-            )
-
-            coroutineScope {
-
-                val jobs = trace.toJobs()
-                workflowHelper.replay(jobs) // Wait for all jobs to be executed completely
-                val makespans = jobs.map { (it.tasks.maxOf { t -> t.metadata["finishedAt"] as Long } - it.tasks.minOf {t -> t.metadata["startedAt"] as Long }) / 1000}
-
-                val workflowWaitTime = jobs.map { (it.tasks.minOf {t -> t.metadata["startedAt"] as Long } - it.metadata["submittedAt"] as Long) / 1000}
-                val completedTasksOverTime : MutableList<Double> = mutableListOf()
-
-                for(job in jobs){
-                    for(task in job.tasks){
-                        val result = when((task.metadata["finishedAt"] as Long - task.metadata["startedAt"]  as Long) < 1000){
-                            false -> (task.metadata["finishedAt"] as Long - task.metadata["startedAt"]  as Long) / 1000
-                            true -> (task.metadata["finishedAt"] as Long - task.metadata["startedAt"]  as Long) / 1000.0
-                        }
-                        completedTasksOverTime.add(completedTasksOverTime.size,
-                            (result).toDouble()
-                        )
-                    }
-                }
-                val workflowResponseTime = (workflowWaitTime.indices).map { workflowWaitTime[it] + makespans[it] }
-
-                (workflowWaitTime.indices).map{
-                    makespanFile.appendLine("${makespans[it]},${kotlin.math.round(workflowResponseTime[it].toDouble())}")
-
-                }
-                for ((key, value) in completedTasksOverTime.groupingBy { it }.eachCount().filter { it.value >= 1 }.entries){
-                    tasksOverTimeFile.appendLine("$key,$value")
-                }
-            }
-        } finally {
-            workflowHelper.close()
-            computeHelper.close()
-            metricReader.close()
-            metricsFile.close()
-            makespanFile.close()
-            tasksOverTimeFile.close()
-        }
-
-        val metrics = collectMetrics(workflowHelper.metricProducer)
-        print(metrics)
-
-        assertAll(
-            { assertEquals(20, metrics.jobsSubmitted, "No jobs submitted") },
-            { assertEquals(0, metrics.jobsActive, "Not all submitted jobs started") },
-            { assertEquals(metrics.jobsSubmitted, metrics.jobsFinished, "Not all started jobs finished") },
-            { assertEquals(0, metrics.tasksActive, "Not all started tasks finished") },
-            { assertEquals(metrics.tasksSubmitted, metrics.tasksFinished, "Not all started tasks finished") },
-//            { assertEquals(33214236L, clock.millis()) { "Total duration incorrect" } }
-        )
-    }
-    @Test
-    fun testTraceHeteroScaled() = runBlockingSimulation {
-        // Configure the ComputeService that is responsible for mapping virtual machines onto physical hosts
-        val HOST_COUNT = 8
-        val computeScheduler = FilterScheduler(
-            filters = listOf(ComputeFilter(), VCpuFilter(1.0), RamFilter(1.0)),
-            weighers = listOf(VCpuWeigher(1.0, multiplier = 1.0))
-        )
-        val computeHelper = ComputeServiceHelper(coroutineContext, clock, computeScheduler, schedulingQuantum = Duration.ofSeconds(1))
-
-        val metricsFile = PrintWriter(System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-metrics-homo-scaled.csv")
-        val makespanFile = PrintWriter(System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-makespan-homo-scaled.csv")
-        val tasksOverTimeFile = PrintWriter(System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-tasksOverTime-homo-scaled.csv")
-        metricsFile.appendLine("No# Tasks running,cpuUsage(CPU usage of all CPUs of the host in MHz),energyUsage(Power usage of the host in W)")
-        makespanFile.appendLine("Makespan (s),Workflow Response time (s)")
-        tasksOverTimeFile.appendLine("Time (s),Tasks #")
-
-        repeat(HOST_COUNT/2) { computeHelper.registerHost(createHomogenousHostSpec(it)) }
-        repeat(HOST_COUNT/2) { computeHelper.registerHost(createHomogenousHostSpec2(it)) }
-        // Configure the WorkflowService that is responsible for scheduling the workflow tasks onto machines
-        val workflowScheduler = WorkflowSchedulerSpec(
-            schedulingQuantum = Duration.ofMillis(100),
-            jobAdmissionPolicy = NullJobAdmissionPolicy,
-            jobOrderPolicy = ExecutionTimeJobOrderPolicy(),
-            taskEligibilityPolicy = NullTaskEligibilityPolicy,
-            taskOrderPolicy = ExecutionTimeTaskOderPolicy(),
-        )
-        val workflowHelper = WorkflowServiceHelper(coroutineContext, clock, computeHelper.service.newClient(), workflowScheduler)
-
-        val metricReader = CoroutineMetricReader(this, computeHelper.producers, object : ComputeMetricExporter(){
-            var energyUsage = 0.0
-            var cpuUsage = 0.0
-            //Makespan
-
-            override fun record(reader: HostTableReader){
-                cpuUsage = reader.cpuUsage
-                energyUsage = reader.powerTotal
-                metricsFile.appendLine("${reader.guestsRunning},$cpuUsage,$energyUsage")
-            }
-        }, exportInterval = Duration.ofSeconds(10))
-
-        try {
-            val trace = Trace.open(
-                Paths.get(checkNotNull(WorkflowServiceTest::class.java.getResource("/askalon-new_ee11_parquet")).toURI()),
-                format = "wtf"
-            )
-
-
-            coroutineScope {
-
-                val jobs = trace.toJobs()
-                workflowHelper.replay(jobs) // Wait for all jobs to be executed completely
-                val makespans = jobs.map { (it.tasks.maxOf { t -> t.metadata["finishedAt"] as Long } - it.tasks.minOf {t -> t.metadata["startedAt"] as Long }) / 1000}
-
-                val workflowWaitTime = jobs.map { (it.tasks.minOf {t -> t.metadata["startedAt"] as Long } - it.metadata["submittedAt"] as Long) / 1000}
-                val completedTasksOverTime : MutableList<Double> = mutableListOf()
-
-                for(job in jobs){
-                    for(task in job.tasks){
-                        val result = when((task.metadata["finishedAt"] as Long - task.metadata["startedAt"]  as Long) < 1000){
-                            false -> (task.metadata["finishedAt"] as Long - task.metadata["startedAt"]  as Long) / 1000
-                            true -> (task.metadata["finishedAt"] as Long - task.metadata["startedAt"]  as Long) / 1000.0
-                        }
-                        completedTasksOverTime.add(completedTasksOverTime.size,
-                            (result).toDouble()
-                        )
-                    }
-                }
-                val workflowResponseTime = (workflowWaitTime.indices).map { workflowWaitTime[it] + makespans[it] }
-
-                (workflowWaitTime.indices).map{
-                    makespanFile.appendLine("${makespans[it]},${kotlin.math.round(workflowResponseTime[it].toDouble())}")
-
-                }
-                for ((key, value) in completedTasksOverTime.groupingBy { it }.eachCount().filter { it.value >= 1 }.entries){
-                    tasksOverTimeFile.appendLine("$key,$value")
-                }
-            }
-        } finally {
-            workflowHelper.close()
-            computeHelper.close()
-            metricReader.close()
-            metricsFile.close()
-            makespanFile.close()
-            tasksOverTimeFile.close()
-        }
-
-        val metrics = collectMetrics(workflowHelper.metricProducer)
-        print(metrics)
-
-        assertAll(
-            { assertEquals(20, metrics.jobsSubmitted, "No jobs submitted") },
-            { assertEquals(0, metrics.jobsActive, "Not all submitted jobs started") },
-            { assertEquals(metrics.jobsSubmitted, metrics.jobsFinished, "Not all started jobs finished") },
-            { assertEquals(0, metrics.tasksActive, "Not all started tasks finished") },
-            { assertEquals(metrics.tasksSubmitted, metrics.tasksFinished, "Not all started tasks finished") },
-//            { assertEquals(33214236L, clock.millis()) { "Total duration incorrect" } }
-        )
-    }
-    @Test
-    fun testTraceHomoScaled() = runBlockingSimulation {
-        // Configure the ComputeService that is responsible for mapping virtual machines onto physical hosts
-        val HOST_COUNT = 8
-        val computeScheduler = FilterScheduler(
-            filters = listOf(ComputeFilter(), VCpuFilter(1.0), RamFilter(1.0)),
-            weighers = listOf(VCpuWeigher(1.0, multiplier = 1.0))
-        )
-        val computeHelper = ComputeServiceHelper(coroutineContext, clock, computeScheduler, schedulingQuantum = Duration.ofSeconds(1))
-
-        val metricsFile = PrintWriter(System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-metrics-hetero-scaled.csv")
-        val makespanFile = PrintWriter(System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-makespan-hetero-scaled.csv")
-        val tasksOverTimeFile = PrintWriter(System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"+"/maxmin-tasksOverTime-hetero-scaled.csv")
-        metricsFile.appendLine("No# Tasks running,cpuUsage(CPU usage of all CPUs of the host in MHz),energyUsage(Power usage of the host in W)")
-        makespanFile.appendLine("Makespan (s),Workflow Response time (s)")
-        tasksOverTimeFile.appendLine("Time (s),Tasks #")
-
-        repeat(HOST_COUNT) { computeHelper.registerHost(createHomogenousHostSpec(it)) }
-        // Configure the WorkflowService that is responsible for scheduling the workflow tasks onto machines
-        val workflowScheduler = WorkflowSchedulerSpec(
-            schedulingQuantum = Duration.ofMillis(100),
-            jobAdmissionPolicy = NullJobAdmissionPolicy,
-            jobOrderPolicy = ExecutionTimeJobOrderPolicy(),
-            taskEligibilityPolicy = NullTaskEligibilityPolicy,
-            taskOrderPolicy = ExecutionTimeTaskOderPolicy(),
-        )
-        val workflowHelper = WorkflowServiceHelper(coroutineContext, clock, computeHelper.service.newClient(), workflowScheduler)
-
-        val metricReader = CoroutineMetricReader(this, computeHelper.producers, object : ComputeMetricExporter(){
-            var energyUsage = 0.0
-            var cpuUsage = 0.0
-            //Makespan
-
-            override fun record(reader: HostTableReader){
-                cpuUsage = reader.cpuUsage
-                energyUsage = reader.powerTotal
-                metricsFile.appendLine("${reader.guestsRunning},$cpuUsage,$energyUsage")
-            }
-        }, exportInterval = Duration.ofSeconds(10))
-
-        try {
-            val trace = Trace.open(
-                Paths.get(checkNotNull(WorkflowServiceTest::class.java.getResource("/askalon-new_ee11_parquet")).toURI()),
-                format = "wtf"
-            )
-
-            coroutineScope {
-
-                val jobs = trace.toJobs()
-                workflowHelper.replay(jobs) // Wait for all jobs to be executed completely
-                val makespans = jobs.map { (it.tasks.maxOf { t -> t.metadata["finishedAt"] as Long } - it.tasks.minOf {t -> t.metadata["startedAt"] as Long }) / 1000}
-
-                val workflowWaitTime = jobs.map { (it.tasks.minOf {t -> t.metadata["startedAt"] as Long } - it.metadata["submittedAt"] as Long) / 1000}
-                val completedTasksOverTime : MutableList<Double> = mutableListOf()
-
-                for(job in jobs){
-                    for(task in job.tasks){
-                        val result = when((task.metadata["finishedAt"] as Long - task.metadata["startedAt"]  as Long) < 1000){
-                            false -> (task.metadata["finishedAt"] as Long - task.metadata["startedAt"]  as Long) / 1000
-                            true -> (task.metadata["finishedAt"] as Long - task.metadata["startedAt"]  as Long) / 1000.0
-                        }
-                        completedTasksOverTime.add(completedTasksOverTime.size,
-                            (result).toDouble()
-                        )
-                    }
-                }
-                val workflowResponseTime = (workflowWaitTime.indices).map { workflowWaitTime[it] + makespans[it] }
-
-                (workflowWaitTime.indices).map{
-                    makespanFile.appendLine("${makespans[it]},${kotlin.math.round(workflowResponseTime[it].toDouble())}")
-
-                }
-                for ((key, value) in completedTasksOverTime.groupingBy { it }.eachCount().filter { it.value >= 1 }.entries){
-                    tasksOverTimeFile.appendLine("$key,$value")
-                }
-            }
-        } finally {
-            workflowHelper.close()
-            computeHelper.close()
-            metricReader.close()
-            metricsFile.close()
-            makespanFile.close()
-            tasksOverTimeFile.close()
-        }
-
-        val metrics = collectMetrics(workflowHelper.metricProducer)
-        print(metrics)
-
-        assertAll(
-            { assertEquals(20, metrics.jobsSubmitted, "No jobs submitted") },
-            { assertEquals(0, metrics.jobsActive, "Not all submitted jobs started") },
-            { assertEquals(metrics.jobsSubmitted, metrics.jobsFinished, "Not all started jobs finished") },
-            { assertEquals(0, metrics.tasksActive, "Not all started tasks finished") },
-            { assertEquals(metrics.tasksSubmitted, metrics.tasksFinished, "Not all started tasks finished") },
-//            { assertEquals(33214236L, clock.millis()) { "Total duration incorrect" } }
-        )
-    }
-
 
     /**
      * Construct a [HostSpec] for a simulated host.
