@@ -40,11 +40,14 @@ import org.opendc.simulator.compute.model.ProcessingNode
 import org.opendc.simulator.compute.model.ProcessingUnit
 import org.opendc.simulator.compute.power.LinearPowerModel
 import org.opendc.simulator.compute.power.SimplePowerDriver
+import org.opendc.simulator.compute.workload.SimFlopsWorkload
 import org.opendc.simulator.core.runBlockingSimulation
 import org.opendc.telemetry.compute.ComputeMetricExporter
 import org.opendc.telemetry.compute.table.HostTableReader
 import org.opendc.telemetry.sdk.metrics.export.CoroutineMetricReader
 import org.opendc.trace.Trace
+import org.opendc.workflow.api.Job
+import org.opendc.workflow.api.Task
 import org.opendc.workflow.service.internal.JobState
 import org.opendc.workflow.service.scheduler.job.ElopAdmissionPolicy
 import org.opendc.workflow.service.scheduler.job.SubmissionTimeJobOrderPolicy
@@ -74,6 +77,31 @@ internal class WorkflowServiceTest {
     fun setup() {
         // create the folder
         val file = File(System.getProperty("user.home") + "/OpenDC Test Automation/ELoP").mkdirs()
+    }
+
+    @Test
+    @DisplayName("Test for general elop logic")
+    fun testElop() {
+        val a = Task(UUID(0L, 1.toLong()), "A", HashSet(), hashMapOf("workflow:task:cores" to 1, "workload" to SimFlopsWorkload(4000, 0.8)))
+        val b = Task(UUID(0L, 2.toLong()), "B", listOf(a).toHashSet(), hashMapOf("workflow:task:cores" to 2, "workload" to SimFlopsWorkload(2000, 0.5)))
+        val c = Task(UUID(0L, 3.toLong()), "C", listOf(a).toHashSet(), hashMapOf("workflow:task:cores" to 3, "workload" to SimFlopsWorkload(3000, 0.4)))
+        val d = Task(UUID(0L, 4.toLong()), "D", listOf(a,b).toHashSet(), hashMapOf("workflow:task:cores" to 3, "workload" to SimFlopsWorkload(1000, 1.0)))
+        val e = Task(UUID(0L, 5.toLong()), "E", listOf(c,d).toHashSet(), hashMapOf("workflow:task:cores" to 2, "workload" to SimFlopsWorkload(2000, 0.5)))
+        val f = Task(UUID(0L, 6.toLong()), "F", listOf(e).toHashSet(), hashMapOf("workflow:task:cores" to 1, "workload" to SimFlopsWorkload(1000, 0.1)))
+
+        val job = Job(UUID(0L, 7.toLong()), "a job", listOf(a,b,c,d,e,f).toHashSet(), HashMap())
+
+        val a2 = Task(UUID(0L, 8.toLong()), "A'", HashSet(), hashMapOf("workflow:task:cores" to 4, "workload" to SimFlopsWorkload(4000, 0.2)))
+        val b2 = Task(UUID(0L, 9.toLong()), "B'", listOf(a2).toHashSet(), hashMapOf("workflow:task:cores" to 7, "workload" to SimFlopsWorkload(4000, 0.8)))
+
+        val job2 = Job(UUID(0L, 10.toLong()), "a job", listOf(a2,b2).toHashSet(), HashMap())
+
+        val trace = listOf(job, job2)
+
+        assertAll(
+            { assertEquals(job.calculateLop(), 5)},
+            { assertEquals(job2.calculateLop(), 7)},
+        )
     }
 
     @ParameterizedTest(name = "{0} hosts")
