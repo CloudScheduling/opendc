@@ -10,17 +10,16 @@ import java.util.*
 private data class ExecutionSpec(val task: TaskState, val host: HostSpec, val selectedCpus: List<ProcessingUnit>, val completionTime: Double)
 
 public class MinMinPolicy(public val hosts : Set<HostSpec>) : HolisticTaskOrderPolicy {
+    // A nested map of hosts, CPU cores, and the time a new task could start on this core.
+    private val startTimes = hosts.associateBy(
+        { host -> host },
+        { host -> host.model.cpus.associateBy({ core -> core }, { 0.0 }).toMutableMap() })
 
     /**
      * A set of tasks is transformed into a queue by applying Min-Min.
      * @param tasks eligible tasks for scheduling
      */
     override fun orderTasks(tasks: Set<TaskState>): Queue<TaskState> {
-        // A nested map of hosts, CPU cores, and the time a new task could start on this core.
-        val startTimes = hosts.associateBy(
-            { host -> host },
-            { host -> host.model.cpus.associateBy({ core -> core }, { 0.0 }).toMutableMap() })
-
         val unmappedTasks = tasks.toMutableSet()
         val orderedTasks = LinkedList<TaskState>()
 
@@ -113,7 +112,7 @@ public class MinMinPolicy(public val hosts : Set<HostSpec>) : HolisticTaskOrderP
         // Then the completion time is s + the maximum execution time of these cores. But the
         // new startTimes (availabilityTimes) depend on the actual clock rate of each core. Puh...
         val frequency = host.model.cpus.first().frequency
-        return cpuCycles / (frequency * requiredCores)
+        return cpuCycles / (frequency * 0.8 * requiredCores)
     }
 
     override fun invoke(scheduler: WorkflowServiceImpl): Comparator<TaskState> {
