@@ -26,6 +26,8 @@ import io.opentelemetry.sdk.metrics.export.MetricProducer
 import kotlinx.coroutines.coroutineScope
 import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import org.opendc.compute.service.scheduler.FilterScheduler
 import org.opendc.compute.service.scheduler.filters.ComputeFilter
 import org.opendc.compute.service.scheduler.filters.RamFilter
@@ -77,13 +79,14 @@ internal class WorkflowServiceTest {
         val file = File(System.getProperty("user.home") + "/OpenDC Test Automation/Random").mkdirs()
     }
 
-    @Test
-    fun testHomo4() {
-        val numHosts = 4
+    @ParameterizedTest(name = "{0} hosts")
+    @ValueSource(ints = [2, 4, 8, 16, 32, 64, 128])
+    @DisplayName("Homogeneous environment")
+    fun testHomo(numHosts : Int) {
         val config = hashMapOf<String, Any>(
-            "path_metrics" to "$basePath/specTrace2_random_homo_scale4_metrics.csv",
-            "path_makespan" to "$basePath/specTrace2_random_homo_scale4_makespan.csv",
-            "path_tasksOverTime" to "$basePath/specTrace2_random_homo_scale4_taksOvertime.csv",
+            "path_metrics" to "$basePath/specTrace2_random_homo_scale${numHosts}_metrics.csv",
+            "path_makespan" to "$basePath/specTrace2_random_homo_scale${numHosts}_makespan.csv",
+            "path_tasksOverTime" to "$basePath/specTrace2_random_homo_scale${numHosts}_taksOvertime.csv",
             "host_function" to listOf(Pair(numHosts, { id : Int -> createHomogenousHostSpec(id)})),
             "metric_readoutMinutes" to readOutInterval.toLong(),
             "tracePath" to "/spec_trace-2_parquet",
@@ -93,83 +96,14 @@ internal class WorkflowServiceTest {
         testTemplate(config)
     }
 
-    @Test
-    fun testHomo8() {
-        val numHosts = 8
+    @ParameterizedTest(name = "{0} hosts")
+    @ValueSource(ints = [2, 4, 8, 16, 32, 64, 128])
+    @DisplayName("Heterogeneous environment")
+    fun testHetro(numHosts : Int) {
         val config = hashMapOf<String, Any>(
-            "path_metrics" to "$basePath/specTrace2_random_homo_scale8_metrics.csv",
-            "path_makespan" to "$basePath/specTrace2_random_homo_scale8_makespan.csv",
-            "path_tasksOverTime" to "$basePath/specTrace2_random_homo_scale8_taksOvertime.csv",
-            "host_function" to listOf(Pair(numHosts, { id : Int -> createHomogenousHostSpec(id)})),
-            "metric_readoutMinutes" to readOutInterval.toLong(),
-            "tracePath" to "/spec_trace-2_parquet",
-            "traceFormat" to "wtf",
-            "numberJobs" to 200.toLong(),
-        )
-        testTemplate(config)
-    }
-
-    @Test
-    fun testHomo16() {
-        val numHosts = 16
-        val config = hashMapOf<String, Any>(
-            "path_metrics" to "$basePath/specTrace2_random_homo_scale16_metrics.csv",
-            "path_makespan" to "$basePath/specTrace2_random_homo_scale16_makespan.csv",
-            "path_tasksOverTime" to "$basePath/specTrace2_random_homo_scale16_taksOvertime.csv",
-            "host_function" to listOf(Pair(numHosts, { id : Int -> createHomogenousHostSpec(id)})),
-            "metric_readoutMinutes" to readOutInterval.toLong(),
-            "tracePath" to "/spec_trace-2_parquet",
-            "traceFormat" to "wtf",
-            "numberJobs" to 200.toLong(),
-        )
-        testTemplate(config)
-    }
-
-    @Test
-    fun testHetro4() {
-        val numHosts = 4
-        val config = hashMapOf<String, Any>(
-            "path_metrics" to "$basePath/specTrace2_random_hetro_scale4_metrics.csv",
-            "path_makespan" to "$basePath/specTrace2_random_hetro_scale4_makespan.csv",
-            "path_tasksOverTime" to "$basePath/specTrace2_random_hetro_scale4_taksOvertime.csv",
-            "host_function" to listOf(
-                Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec(id)}),
-                Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec2(id)}),
-            ),
-            "metric_readoutMinutes" to readOutInterval.toLong(),
-            "tracePath" to "/spec_trace-2_parquet",
-            "traceFormat" to "wtf",
-            "numberJobs" to 200.toLong(),
-        )
-        testTemplate(config)
-    }
-
-    @Test
-    fun testHetro8() {
-        val numHosts = 8
-        val config = hashMapOf<String, Any>(
-            "path_metrics" to "$basePath/specTrace2_random_hetro_scale8_metrics.csv",
-            "path_makespan" to "$basePath/specTrace2_random_hetro_scale8_makespan.csv",
-            "path_tasksOverTime" to "$basePath/specTrace2_random_hetro_scale8_taksOvertime.csv",
-            "host_function" to listOf(
-                Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec(id)}),
-                Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec2(id)}),
-            ),
-            "metric_readoutMinutes" to readOutInterval.toLong(),
-            "tracePath" to "/spec_trace-2_parquet",
-            "traceFormat" to "wtf",
-            "numberJobs" to 200.toLong(),
-        )
-        testTemplate(config)
-    }
-
-    @Test
-    fun testHetro16() {
-        val numHosts = 16
-        val config = hashMapOf<String, Any>(
-            "path_metrics" to "$basePath/specTrace2_random_hetro_scale16_metrics.csv",
-            "path_makespan" to "$basePath/specTrace2_random_hetro_scale16_makespan.csv",
-            "path_tasksOverTime" to "$basePath/specTrace2_random_hetro_scale16_taksOvertime.csv",
+            "path_metrics" to "$basePath/specTrace2_random_hetro_scale${numHosts}_metrics.csv",
+            "path_makespan" to "$basePath/specTrace2_random_hetro_scale${numHosts}_makespan.csv",
+            "path_tasksOverTime" to "$basePath/specTrace2_random_hetro_scale${numHosts}_taksOvertime.csv",
             "host_function" to listOf(
                 Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec(id)}),
                 Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec2(id)}),
