@@ -78,9 +78,9 @@ internal class WorkflowServiceTest {
         val file = File(System.getProperty("user.home") + "/OpenDC Test Automation/Min-Min").mkdirs()
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "{0} hosts")
     @ValueSource(ints = [2, 4, 8, 16, 32, 64, 128])
-    @DisplayName("Homogeneous environment, {0} hosts")
+    @DisplayName("Homogeneous environment")
     fun testHomo(numHosts : Int) {
         val config = hashMapOf<String, Any>(
             "path_metrics" to "$basePath/specTrace2_minMin_homo_scale${numHosts}_metrics.csv",
@@ -95,9 +95,9 @@ internal class WorkflowServiceTest {
         testTemplate(config)
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "{0} hosts")
     @ValueSource(ints = [2, 4, 8, 16, 32, 64, 128])
-    @DisplayName("Heterogeneous environment, {0} hosts")
+    @DisplayName("Heterogeneous environment")
     fun testHetro(numHosts: Int) {
         val config = hashMapOf<String, Any>(
             "path_metrics" to "$basePath/specTrace2_minMin_hetro_scale${numHosts}_metrics.csv",
