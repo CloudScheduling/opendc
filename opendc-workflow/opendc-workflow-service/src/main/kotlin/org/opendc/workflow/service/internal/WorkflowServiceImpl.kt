@@ -470,6 +470,7 @@ public class WorkflowServiceImpl(
                 finishedTasks.add(1)
                 rootListener.taskFinished(task)
 
+
                 // Add job roots to the scheduling queue
                 for (dependent in task.dependents) {
                     if (dependent.state != TaskStatus.READY) {
@@ -484,6 +485,21 @@ public class WorkflowServiceImpl(
                     finishJob(job)
                     val hosts = jobHostMapping.remove(task.job) ?: throw Exception("No host found")
                     assignedHosts.removeAll(hosts)
+                }
+                else {
+                    // task is finished -> lop changed :)
+                    val oldLop = job.lop
+                    if (oldLop != job.calculateLop()) {
+                        // reassign the hosts for this job
+                        val hosts = jobHostMapping.remove(task.job) ?: throw Exception("No host found")
+                        assignedHosts.removeAll(hosts)
+
+                        val hostsForJob = getChoices(job)
+                        assignedHosts.addAll(hostsForJob)
+                        jobHostMapping[job] = hostsForJob
+                        // TODO: what to do with the other jobs?
+                        // -> if I read paper right, nothing
+                    }
                 }
 
                 requestSchedulingCycle()
