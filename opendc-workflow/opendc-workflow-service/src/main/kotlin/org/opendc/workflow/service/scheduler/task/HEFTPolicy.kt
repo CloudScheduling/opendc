@@ -16,7 +16,7 @@ import java.util.*
 
 public class HEFTPolicy(private val hosts : Set<HostSpec>) : TaskOrderPolicy{
 
-    private val hostsToCPUAndTimePairMapping : Map<HostSpec, Map<ProcessingUnit, Double>> = hosts.associateBy(
+    private val hostsToCPUAndTimePairMapping : Map<HostSpec, MutableMap<ProcessingUnit, Double>> = hosts.associateBy(
         {host : HostSpec -> host},
         {host : HostSpec -> host.model.cpus.associateBy({ core ->
             core
