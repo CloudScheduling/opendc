@@ -61,6 +61,7 @@ internal class GwfTaskTableReader(private val parser: CsvParser) : TableReader {
                 "NProcs" -> nProcs = parser.intValue
                 "ReqNProcs" -> reqNProcs = parser.intValue
                 "Dependencies" -> parseParents(parser.valueAsString)
+                "Dependents" -> parseChildren(parser.valueAsString)
             }
         }
 
@@ -83,6 +84,7 @@ internal class GwfTaskTableReader(private val parser: CsvParser) : TableReader {
             COL_REQ_NPROC -> getInt(index)
             COL_NPROC -> getInt(index)
             COL_DEPS -> dependencies
+            COL_DEPENDENTS -> dependents
             else -> throw IllegalArgumentException("Invalid column")
         }
     }
@@ -135,6 +137,24 @@ internal class GwfTaskTableReader(private val parser: CsvParser) : TableReader {
     }
 
     /**
+     * Parse the children into a set of longs.
+     */
+    private fun parseChildren(value: String): Set<Long> {
+        val result = mutableSetOf<Long>()
+        val deps = value.split(pattern)
+
+        for (dep in deps) {
+            if (dep.isBlank()) {
+                continue
+            }
+
+            result.add(dep.toLong(10))
+        }
+
+        return result
+    }
+
+    /**
      * Advance the parser until the next object start.
      */
     private fun nextStart(): Boolean {
@@ -157,6 +177,7 @@ internal class GwfTaskTableReader(private val parser: CsvParser) : TableReader {
     private var nProcs = -1
     private var reqNProcs = -1
     private var dependencies = emptySet<Long>()
+    private var dependents = emptySet<Long>()
 
     /**
      * Reset the state.
@@ -169,6 +190,7 @@ internal class GwfTaskTableReader(private val parser: CsvParser) : TableReader {
         nProcs = -1
         reqNProcs = -1
         dependencies = emptySet()
+        dependents = emptySet()
     }
 
     private val COL_WORKFLOW_ID = 0
@@ -178,6 +200,7 @@ internal class GwfTaskTableReader(private val parser: CsvParser) : TableReader {
     private val COL_NPROC = 4
     private val COL_REQ_NPROC = 5
     private val COL_DEPS = 6
+    private val COL_DEPENDENTS = 7
 
     private val columns = mapOf(
         TASK_ID to COL_JOB_ID,
@@ -186,7 +209,8 @@ internal class GwfTaskTableReader(private val parser: CsvParser) : TableReader {
         TASK_RUNTIME to COL_RUNTIME,
         TASK_ALLOC_NCPUS to COL_NPROC,
         TASK_REQ_NCPUS to COL_REQ_NPROC,
-        TASK_PARENTS to COL_DEPS
+        TASK_PARENTS to COL_DEPS,
+        TASK_CHILDREN to COL_DEPENDENTS
     )
 
     companion object {
@@ -201,6 +225,7 @@ internal class GwfTaskTableReader(private val parser: CsvParser) : TableReader {
             .addColumn("NProcs", CsvSchema.ColumnType.NUMBER)
             .addColumn("ReqNProcs", CsvSchema.ColumnType.NUMBER)
             .addColumn("Dependencies", CsvSchema.ColumnType.STRING)
+            .addColumn("Dependents", CsvSchema.ColumnType.STRING)
             .setAllowComments(true)
             .setUseHeader(true)
             .setColumnSeparator(',')
