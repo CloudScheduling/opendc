@@ -89,7 +89,9 @@ internal class WorkflowServiceTest {
             "host_function" to listOf(Pair(numHosts, { id : Int -> createHomogenousHostSpec(id)})),
             "metric_readoutMinutes" to readOutInterval.toLong(),
             "tracePath" to "/spec_trace-2_parquet",
-            "traceFormat" to "wtf",
+            // "tracePath" to "/trace3.gwf",
+             "traceFormat" to "wtf",
+            // "traceFormat" to "gwf",
             "numberJobs" to 200.toLong(),
         )
         testTemplate(config)
@@ -108,8 +110,10 @@ internal class WorkflowServiceTest {
                 Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec2(id)}),
             ),
             "metric_readoutMinutes" to readOutInterval.toLong(),
-            "tracePath" to "/spec_trace-2_parquet",
-            "traceFormat" to "wtf",
+             "tracePath" to "/spec_trace-2_parquet",
+            //"tracePath" to "/trace3.gwf",
+             "traceFormat" to "wtf",
+            //"traceFormat" to "gwf",
             "numberJobs" to 200.toLong(),
         )
         testTemplate(config)

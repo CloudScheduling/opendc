@@ -14,21 +14,15 @@ import java.util.*
  * Extends TaskOrderPolicy class for allowing its execution.
  */
 
-public class HEFTPolicy(private val hosts : Set<HostSpec>) : TaskOrderPolicy{
+public class HEFTPolicy(private val hosts : Set<HostSpec>) : HolisticTaskOrderPolicy{
 
-    private val hostsToCPUAndTimePairMapping : Map<HostSpec, MutableMap<ProcessingUnit, Double>> = hosts.associateBy(
-        {host : HostSpec -> host},
-        {host : HostSpec -> host.model.cpus.associateBy({ core ->
-            core
-        }, { 0.0 }).toMutableMap() }
-    )
     /**
      * A set of tasks is transformed into a queue by applying HEFT algorithm.
      * @param tasks eligible tasks for scheduling
      */
-    private fun orderTasks(tasks: Set<TaskState>) : Queue<TaskState>{
+    public override fun orderTasks(tasks: Set<TaskState>) : Queue<TaskState>{
         val pendingTasks = tasks.toMutableSet()
-        val scheduledTasks = LinkedList<TaskState>()
+        val finalScheduledTasks = LinkedList<TaskState>()
             for (task in pendingTasks) {
                 // pending tasks would be passed to the calculateUpwardRank() function
                 if (null == task.task.metadata["upward-rank"]) {
@@ -36,8 +30,8 @@ public class HEFTPolicy(private val hosts : Set<HostSpec>) : TaskOrderPolicy{
                 }
                 // otherwise, it means the rank was already calculated as part of child task's computation cost calculation
             }
-        val tasksList = tasks.toList()
-        tasksList.sortedByDescending { it.task.metadata["upward-rank"] as Double }
+        val unsortedtasksList = tasks.toList()
+        var tasksList = unsortedtasksList.sortedByDescending { it.task.metadata["upward-rank"] as Double }
         // now we do sorting of tasks above as per decreasing order of the Upward ran
 
         // select the first task from sorted list
@@ -46,32 +40,73 @@ public class HEFTPolicy(private val hosts : Set<HostSpec>) : TaskOrderPolicy{
         // assign task to the host that minimises EFT of this selected task
         for (task in tasksList){
             val requiredCores: Int = task.task.metadata[WORKFLOW_TASK_CORES] as? Int ?: 1
-            var selectedHost : HostSpec? = null
-            var selectedCores: List<ProcessingUnit>? = null
-            var min = Double.MAX_VALUE
+            var earliestFinishTime = Long.MAX_VALUE
+            var currentStartTime: Long = 0
+            var assignedHost: HostSpec? = null
+            var assignedCore: ProcessingUnit? = null
             val potentialHosts = hosts.filter { it.model.cpus.count() >= requiredCores }
+            // val cpuPerHost : MutableMap<SimHost, ProcessingUnit>
+            val scheduledTasks : MutableMap<ProcessingUnit, MutableList<TaskState>> = mutableMapOf()
+
             for (host in potentialHosts){
-                val minTotalCoreEFT = hostsToCPUAndTimePairMapping[host]!!.toList().sortedBy { it.second }.take(requiredCores)
-                val startTime = minTotalCoreEFT.maxOf { it.second }
+                //val minTotalCoreEFT = hostsToCPUAndTimePairMapping[host]!!.toList().sortedBy { it.second }.take(requiredCores)
                 val executionTime = calculateExecutionTime(task, requiredCores, host)
-                val minEFT = startTime + executionTime
-                if(minEFT < min){
-                    min = minEFT
-                    selectedHost = host
-                    selectedCores = minTotalCoreEFT.map { it.first }
-                }
-            }
-                if (selectedCores != null) {
-                    for (core in selectedCores) {
-                        hostsToCPUAndTimePairMapping[selectedHost]!![core] = min
+                for (CPU in host.model.cpus){
+                // look for best-fitting of a task on each processor - by checking the start time and finish time of each CPU.
+
+                    if (!scheduledTasks.containsKey(CPU))
+                        scheduledTasks[CPU] = mutableListOf()
+
+                    val tasks = scheduledTasks[CPU]!!
+                    var prevFinishTime : Long = -1
+                    var currFinishTime = Long.MAX_VALUE
+                    var gapFound = false
+
+                    for (i in 1 until tasks.size) {
+                        prevFinishTime = tasks[i - 1].task.metadata["finish-time"] as Long
+                        val nextStartTime = tasks[i].task.metadata["start-time"] as Long
+
+                        if (nextStartTime - prevFinishTime >= executionTime) {
+                            currFinishTime = (prevFinishTime + executionTime).toLong()
+                            gapFound = true
+                            break
+                        }
+                    }
+
+                    if (!gapFound) {
+                        prevFinishTime = tasks.last().task.metadata["finish-time"] as Long
+                        // currentStartTime = prevFinishTime
+                        currFinishTime = prevFinishTime + executionTime
+                    }
+
+
+                    if (currFinishTime < earliestFinishTime){
+                        earliestFinishTime = currFinishTime
+                        currentStartTime = prevFinishTime
+                        assignedHost = host
+                        assignedCore = CPU
                     }
                 }
-            // PENDING LOGIC VERIFICATION above due to minimum EFT determination for each task required...
-            task.task.metadata["assigned-host"] = Pair(selectedHost?.uid, selectedHost?.name)
+            }
+
+            task.task.metadata["assigned-host"] = assignedHost!!
+            task.task.metadata["finish-time"] = earliestFinishTime
+            task.task.metadata["start-time"] = currentStartTime
+
+            val cpuTasks = scheduledTasks[assignedCore]!!
+            for (i in 0 until cpuTasks.size) {
+                val finishTime = cpuTasks[i].task.metadata["finish-time"]
+                if (finishTime == currentStartTime) {
+                    cpuTasks.add(i + 1, task)
+                    break
+                }
+            }
+
+            // for every CPU, ordered list of a task assigned in the sorted order of task scheduled
             pendingTasks.remove(task)
-            scheduledTasks.add(task)
+            finalScheduledTasks.add(task)
         }
-        return scheduledTasks
+        return finalScheduledTasks
     }
 
     private fun calculateExecutionTime(task: TaskState, requiredCores: Int, host: HostSpec): Double {
@@ -86,30 +121,35 @@ public class HEFTPolicy(private val hosts : Set<HostSpec>) : TaskOrderPolicy{
      */
 
     private fun calculateUpwardRank(task: TaskState): Double{
-        var upwardRank: Double
-
-        upwardRank = getMeanComputationCostOfTask(task) + getUpwardRankRecursively(task)
-        task.task.metadata["upward-rank"] = upwardRank +getUpwardRankRecursively(task)
+        val upwardRank: Double = getMeanComputationCostOfTask(task) + getUpwardRankRecursively(task, Double.MIN_VALUE)
+        task.task.metadata["upward-rank"] = upwardRank // +getUpwardRankRecursively(task, Double.MIN_VALUE)
         return upwardRank
     }
 
 
-    private fun getUpwardRankRecursively(task: TaskState) : Double{
+    private fun getUpwardRankRecursively(task: TaskState, maxChildRank: Double) : Double{
         // val upwardRank = 0
         val meanCommunicationCost = 0.0
-        var maxChildRank = Double.MIN_VALUE
+        // var maxChildRank = Double.MIN_VALUE
         // assumed above that data transfer cost is common in the simulation environment
 
-        return if (null == task.dependents) {
-            task.task.metadata["upward-rank"] = getMeanComputationCostOfTask(task)
-            task.task.metadata["upward-rank"] as Double
-        } else {
+         if (null == task.dependents || task.dependents.isEmpty()) {
+            // task.task.metadata["upward-rank"] = getMeanComputationCostOfTask(task)
+             // return task.task.metadata["upward-rank"] as Double
+             return 0.toDouble()
+         }
+         else {
             for (childTask in task.dependents) {
-                if (maxChildRank < getMeanComputationCostOfTask(childTask)){
-                    maxChildRank = getMeanComputationCostOfTask(childTask)
-                }
+                // set maxChildRank to 0, and then only keep for-loop for recursive call and getting upward rank.
+                return if (maxChildRank < getMeanComputationCostOfTask(childTask)
+                    + getUpwardRankRecursively(childTask, Double.MIN_VALUE)){
+                    getMeanComputationCostOfTask(childTask) +
+                        getUpwardRankRecursively(childTask, Double.MIN_VALUE)
+                    // return getUpwardRankRecursively(childTask)
+                } else
+                    maxChildRank
             }
-            maxChildRank
+             return Double.MIN_VALUE // never be executed!
         }
     }
 
@@ -118,7 +158,7 @@ public class HEFTPolicy(private val hosts : Set<HostSpec>) : TaskOrderPolicy{
         var totalComputationCostOfTask = 0.0
         var avgComputationCost = 0.0
 
-        // _|_, above assumed the communication cost between child and parent task as consistent
+        // _|_, above assumed the communication cost between child and parent task as constant
         // to reduce the complexity of the code
         val cpuCycles = task.task.metadata["cpu-cycles"] as Long
         val requiredCores: Int = task.task.metadata[WORKFLOW_TASK_CORES] as? Int ?: 1
