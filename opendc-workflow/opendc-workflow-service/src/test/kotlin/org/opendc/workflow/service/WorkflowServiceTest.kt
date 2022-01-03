@@ -87,6 +87,7 @@ internal class WorkflowServiceTest {
             "path_metrics" to "$basePath/specTrace2_random_homo_scale${numHosts}_metrics.csv",
             "path_makespan" to "$basePath/specTrace2_random_homo_scale${numHosts}_makespan.csv",
             "path_tasksOverTime" to "$basePath/specTrace2_random_homo_scale${numHosts}_taksOvertime.csv",
+            "path_hostInfo" to "$basePath/specTrace2_random_homo_scale${numHosts}_hostInfo.csv",
             "host_function" to listOf(Pair(numHosts, { id : Int -> createHomogenousHostSpec(id)})),
             "metric_readoutMinutes" to readOutInterval.toLong(),
             "tracePath" to "/spec_trace-2_parquet",
@@ -104,6 +105,7 @@ internal class WorkflowServiceTest {
             "path_metrics" to "$basePath/specTrace2_random_hetro_scale${numHosts}_metrics.csv",
             "path_makespan" to "$basePath/specTrace2_random_hetro_scale${numHosts}_makespan.csv",
             "path_tasksOverTime" to "$basePath/specTrace2_random_hetro_scale${numHosts}_taksOvertime.csv",
+            "path_hostInfo" to "$basePath/specTrace2_random_hetro_scale${numHosts}_hostInfo.csv",
             "host_function" to listOf(
                 Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec(id)}),
                 Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec2(id)}),
@@ -139,7 +141,7 @@ internal class WorkflowServiceTest {
         val makespanFile =  PrintWriter(config["path_makespan"] as String)
         val tasksOverTimeFile = PrintWriter(config["path_tasksOverTime"] as String)
 
-        metricsFile.appendLine("No# Tasks running,cpuUsage(CPU usage of all CPUs of the host in MHz),energyUsage(Power usage of the host in W)")
+        metricsFile.appendLine("Timestamp(s),HostId,No# Tasks running,cpuUsage(CPU usage of all CPUs of the host in MHz),energyUsage(Power usage of the host in W)")
         makespanFile.appendLine("Makespan (s),Workflow Response time (s)")
         tasksOverTimeFile.appendLine("Time (s),Tasks #")
 
@@ -151,6 +153,16 @@ internal class WorkflowServiceTest {
             repeat(hostCount) { computeHelper.registerHost(hostFn(it+offSet)) }
             offSet += hostCount
         }
+
+        // write generic infos about the host to special file
+        val hostInfoFile = PrintWriter(config["path_hostInfo"] as String)
+        hostInfoFile.appendLine("HostNo,maxCapacity(MHz)")
+        for (host in computeHelper.hosts) {
+            var maxCapacity = host.machine.cpus.sumOf { it.capacity }
+            hostInfoFile.appendLine("${host.uid},${maxCapacity}")
+        }
+        hostInfoFile.close()
+
         // Configure the WorkflowService that is responsible for scheduling the workflow tasks onto machines
         val workflowScheduler = WorkflowSchedulerSpec(
             schedulingQuantum = Duration.ofMillis(100),
@@ -166,9 +178,11 @@ internal class WorkflowServiceTest {
             //Makespan
 
             override fun record(reader: HostTableReader){
+                var host = reader.host.id
+                var timeStamp = reader.timestamp.getEpochSecond()
                 cpuUsage = reader.cpuUsage
                 energyUsage = reader.powerTotal
-                metricsFile.appendLine("${reader.guestsRunning},$cpuUsage,${energyUsage.toInt()}")
+                metricsFile.appendLine("${timeStamp},${host},${reader.guestsRunning},$cpuUsage,${energyUsage.toInt()}")
 
             }
         }, exportInterval = Duration.ofMinutes(config["metric_readoutMinutes"] as Long))
