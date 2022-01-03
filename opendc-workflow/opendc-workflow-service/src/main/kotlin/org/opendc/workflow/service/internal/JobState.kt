@@ -26,6 +26,7 @@ import org.opendc.workflow.api.Job
 import org.opendc.workflow.api.Task
 import java.util.*
 import kotlin.collections.HashMap
+import kotlin.collections.HashSet
 import kotlin.coroutines.Continuation
 import kotlin.math.max
 
@@ -46,7 +47,71 @@ public class JobState(public val job: Job, public val submittedAt: Long, interna
     override fun hashCode(): Int = job.hashCode()
 
     public fun calculateLop() : Int {
-        this.lop = this.job.calculateLop()
+        for (t in this.tasks) {
+            t.task.enables = HashSet()
+        }
+        // reverse the whole thing, but only look at finished tasks! :)
+        // this way, lop changes in between
+        // no filters needed -> job has tasks automatically removed
+        for (t in this.tasks) {
+            for (t2 in t.dependencies) {
+                t2.task.enables.add(t.task)
+            }
+        }
+
+        // identify the start task -> task that comes first (get task with min submittedAt)
+        val startTasks = this.tasks.filter { it.dependencies.isEmpty() }.map { it.task }
+        if (startTasks.isEmpty()) {
+            throw Exception("No start task found")
+        }
+        var startTask : Task?
+        var proxyIntroduced = false
+        var proxyStart : Task? = null
+        if (startTasks.size > 1) {
+            proxyIntroduced = true
+            proxyStart = Task(UUID.randomUUID(), "Proxy-Start", HashSet(), hashMapOf("workflow:task:cores" to 0))
+            proxyStart.enables = startTasks.toHashSet()
+            for (task in startTasks) {
+                task.dependencies = task.dependencies.plus(proxyStart)
+            }
+            startTask = proxyStart
+        }
+        else {
+            startTask = startTasks[0]
+        }
+        startTask.token = true
+        // do breitensuche: for each path -> give token
+        var nextLevel = HashSet<Task>()
+        nextLevel.add(startTask)
+
+        var lop = 0
+        while (nextLevel.isNotEmpty()) {
+            var localCounter = 0
+            var newElements = HashSet<Task>()
+            var elemsToRemove = HashSet<Task>()
+            var assignTokens = HashSet<Task>()
+            for (currElem in nextLevel) {
+                newElements.addAll(currElem.enables) // set -> unique
+                if (currElem.allDependenciesHaveTokens()) { // counts proxyStart, but that node has 0 cpus -> no influence on LOP
+                    assignTokens.add(currElem)
+                    elemsToRemove.add(currElem)
+                    localCounter += currElem.metadata["workflow:task:cores"] as Int
+                }
+            }
+            for (elem in assignTokens) elem.token = true
+            nextLevel.addAll(newElements)
+            nextLevel.removeAll(elemsToRemove)
+            lop = max(localCounter, lop)
+        }
+
+        // if proxy introduced, remove it
+        if (proxyIntroduced && proxyStart != null) {
+            for (task in startTasks) {
+                task.dependencies = task.dependencies.minus(proxyStart)
+            }
+        }
+
+        this.lop = lop
         return lop
     }
 
