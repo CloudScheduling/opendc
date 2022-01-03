@@ -44,6 +44,7 @@ public fun Trace.toJobs(): List<Job> {
     val jobs = mutableMapOf<Long, Job>()
     val tasks = mutableMapOf<Long, Task>()
     val taskDependencies = mutableMapOf<Task, Set<Long>>()
+    val taskDependents = mutableMapOf<Task, Set<Long>>()
 
     try {
         while (reader.nextRow()) {
@@ -64,6 +65,7 @@ public fun Trace.toJobs(): List<Job> {
                 UUID(0L, id),
                 "<unnamed>",
                 HashSet(),
+                HashSet(),
                 mutableMapOf(
                     "workload" to workload,
                     WORKFLOW_TASK_CORES to grantedCpus,
@@ -74,7 +76,8 @@ public fun Trace.toJobs(): List<Job> {
 
             tasks[id] = task
             taskDependencies[task] = reader.get(TASK_PARENTS).map { it.toLong() }.toSet()
-
+            taskDependents[task] = reader.get(TASK_CHILDREN).map{it.toLong()}.toSet()
+            // taskDependents[task] = reader.get(TASK_CHILDREN).map{it.split(" ")}.toSet()
             (workflow.metadata as MutableMap<String, Any>).merge("WORKFLOW_SUBMIT_TIME", submitTime.toEpochMilli()) { a, b -> min(a as Long, b as Long) }
             (workflow.tasks as MutableSet<Task>).add(task)
         }
@@ -84,6 +87,14 @@ public fun Trace.toJobs(): List<Job> {
             for (dep in deps) {
                 val parent = requireNotNull(tasks[dep]) { "Dependency task with id $dep not found" }
                 (task.dependencies as MutableSet<Task>).add(parent)
+            }
+        }
+
+        // Resolve dependents for all tasks
+        for ((task, deps) in taskDependents) {
+            for (dep in deps) {
+                val children = requireNotNull(tasks[dep]) { "Dependent task with id $dep not found" }
+                (task.dependents as MutableSet<Task>).add(children)
             }
         }
     } finally {

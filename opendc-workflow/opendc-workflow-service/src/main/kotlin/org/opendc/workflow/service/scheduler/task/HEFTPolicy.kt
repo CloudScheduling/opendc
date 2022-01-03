@@ -26,7 +26,7 @@ public class HEFTPolicy(private val hosts : Set<HostSpec>) : HolisticTaskOrderPo
             for (task in pendingTasks) {
                 // pending tasks would be passed to the calculateUpwardRank() function
                 if (null == task.task.metadata["upward-rank"]) {
-                    calculateUpwardRank(task)
+                    task.task.metadata["upward-rank"] = calculateUpwardRank(task)
                 }
                 // otherwise, it means the rank was already calculated as part of child task's computation cost calculation
             }
@@ -117,19 +117,39 @@ public class HEFTPolicy(private val hosts : Set<HostSpec>) : HolisticTaskOrderPo
 
     /**
      * Upward rank for each task would be calculated here
-     * @param task task passed for which upward rank needs to be calculated
+     * @param task task for which upward rank needs to be calculated
      */
 
     private fun calculateUpwardRank(task: TaskState): Double{
-        val upwardRank: Double = getMeanComputationCostOfTask(task) + getUpwardRankRecursively(task, Double.MIN_VALUE)
-        task.task.metadata["upward-rank"] = upwardRank // +getUpwardRankRecursively(task, Double.MIN_VALUE)
-        return upwardRank
+//        val upwardRank: Double = getMeanComputationCostOfTask(task) + getUpwardRankRecursively(task, Double.MIN_VALUE)
+//        task.task.metadata["upward-rank"] = upwardRank // +getUpwardRankRecursively(task, Double.MIN_VALUE)
+//        return upwardRank
+        val meanCommunicationCost = 0.0
+        var dependentTaskRank: Double
+        var tempMaxChildRank: Double = 0.0
+        if(null == task.dependents || task.dependents.isEmpty()){
+            return getMeanComputationCostOfTask(task)
+        }
+        else{
+        for (childTask in task.dependents){
+            dependentTaskRank = calculateUpwardRank(childTask)
+            if (dependentTaskRank + meanCommunicationCost > tempMaxChildRank){
+                tempMaxChildRank = dependentTaskRank + meanCommunicationCost
+            }
+        }
+        return tempMaxChildRank + getMeanComputationCostOfTask(task)
+        }
     }
 
+    /**
+     * Upward rank for each task would be calculated here -- NOT USING THIS ANYMORE
+     * @param task task passed for which upward rank needs to be calculated
+     * @param maxChildRank the maximum child rank to keep a track for parent's upward rank
+     */
 
     private fun getUpwardRankRecursively(task: TaskState, maxChildRank: Double) : Double{
         // val upwardRank = 0
-        val meanCommunicationCost = 0.0
+
         // var maxChildRank = Double.MIN_VALUE
         // assumed above that data transfer cost is common in the simulation environment
 
