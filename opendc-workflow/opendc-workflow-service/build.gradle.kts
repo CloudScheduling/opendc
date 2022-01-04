@@ -34,6 +34,7 @@ dependencies {
     api(projects.opendcWorkflow.opendcWorkflowApi)
     api(projects.opendcCompute.opendcComputeApi)
     api(projects.opendcTelemetry.opendcTelemetryApi)
+    api(projects.opendcCompute.opendcComputeWorkload)
     implementation(projects.opendcUtils)
     implementation(libs.kotlin.logging)
 
