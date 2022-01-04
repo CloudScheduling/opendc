@@ -59,7 +59,7 @@ class HEFTTest {
         val tasks = setOf(
             task1, task2)
 
-        val hostSpecs = mutableSetOf<HostSpec>(createDefaultHostSpec(0), createDefaultHostSpec(1))
+        val hostSpecs = mutableSetOf(createDefaultHostSpec(0), createDefaultHostSpec(1))
         val heft = HEFTPolicy(hostSpecs)
         val input = createInputForPolicy(tasks, coroutineContext)
 
@@ -114,7 +114,7 @@ class HEFTTest {
         val cpu = ProcessingNode("PolicyMakers", "x86", "EPIC1", 1)
         val cores = listOf(ProcessingUnit(cpu, 1, 3400.0))
 
-        val machineModel = MachineModel(cores, emptyList<MemoryUnit>())
+        val machineModel = MachineModel(cores, emptyList())
         return createHostSpec(uid, machineModel)
     }
 
@@ -132,7 +132,16 @@ class HEFTTest {
     private fun createInputForPolicy(tasks: Set<Task>, context: CoroutineContext): Set<TaskState> {
         val cont = Continuation<Unit>(context) { ; }
         val job = JobState(Job(UUID.randomUUID(), "onlyJob", tasks), 0, cont)
-        return tasks.map { TaskState(job, it) }.toSet()
+        val taskInstances = tasks.associateWith { TaskState(job, it) }
+
+        for ((task, ts) in taskInstances) {
+            ts.dependencies.addAll(task.dependencies.map { taskInstances[it]!! })
+            task.dependencies.forEach {
+                taskInstances[it]!!.dependents.add(ts)
+            }
+        }
+
+        return taskInstances.values.toSet()
     }
 }
 
