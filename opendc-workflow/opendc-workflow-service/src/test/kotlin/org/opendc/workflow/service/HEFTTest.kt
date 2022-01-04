@@ -3,9 +3,6 @@ package org.opendc.workflow.service
 import io.opentelemetry.sdk.metrics.export.MetricProducer
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertAll
-import org.opendc.compute.service.scheduler.AssignmentExecutionScheduler
-import org.opendc.compute.workload.ComputeServiceHelper
 import org.opendc.compute.workload.topology.HostSpec
 import org.opendc.simulator.compute.kernel.SimSpaceSharedHypervisorProvider
 import org.opendc.simulator.compute.model.MachineModel
@@ -15,23 +12,13 @@ import org.opendc.simulator.compute.model.ProcessingUnit
 import org.opendc.simulator.compute.power.ConstantPowerModel
 import org.opendc.simulator.compute.power.SimplePowerDriver
 import org.opendc.simulator.core.runBlockingSimulation
-import org.opendc.trace.Trace
 import org.opendc.workflow.api.Job
 import org.opendc.workflow.api.Task
 import org.opendc.workflow.api.WORKFLOW_TASK_CORES
 import org.opendc.workflow.service.internal.JobState
 import org.opendc.workflow.service.internal.TaskState
-import org.opendc.workflow.service.scheduler.job.NullJobAdmissionPolicy
-import org.opendc.workflow.service.scheduler.job.SubmissionTimeJobOrderPolicy
 import org.opendc.workflow.service.scheduler.task.HEFTPolicy
-import org.opendc.workflow.service.scheduler.task.NullTaskEligibilityPolicy
-import org.opendc.workflow.workload.WorkflowSchedulerSpec
-import org.opendc.workflow.workload.WorkflowServiceHelper
-import org.opendc.workflow.workload.toJobs
-import java.nio.file.Paths
-import java.time.Duration
 import java.util.*
-import kotlin.collections.HashSet
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.CoroutineContext
 
@@ -89,7 +76,7 @@ class HEFTTest {
         var task1: Task = Task(UUID(0L, 1L), "Task0", HashSet(),HashSet(), mutableMapOf("cpu-cycles" to 1000L, WORKFLOW_TASK_CORES to 1))
         var task2 : Task = Task(UUID(0L, 2L), "Task1", mutableSetOf(task1),HashSet(), mutableMapOf("cpu-cycles" to 1010L, WORKFLOW_TASK_CORES to 1))
         var task3 : Task = Task(UUID(0L, 3L), "Task2", HashSet(),HashSet(), mutableMapOf("cpu-cycles" to 1000L, WORKFLOW_TASK_CORES to 1))
-        var task4 : Task = Task(UUID(0L, 2L), "Task3", mutableSetOf(task3),HashSet(), mutableMapOf("cpu-cycles" to 1000L, WORKFLOW_TASK_CORES to 1))
+        var task4 : Task = Task(UUID(0L, 4L), "Task3", mutableSetOf(task3),HashSet(), mutableMapOf("cpu-cycles" to 1000L, WORKFLOW_TASK_CORES to 1))
         task1.dependents = mutableSetOf(task2)
         task3.dependents = mutableSetOf(task4)
         val tasks = hashSetOf(
@@ -119,7 +106,7 @@ class HEFTTest {
         Assertions.assertEquals("Task0", firstTask.task.name)
         Assertions.assertEquals("Task2", secondTask.task.name)
         Assertions.assertEquals("Task1", thirdTask.task.name)
-        // Assertions.assertEquals("Task3", fourthTask.task.name)
+        Assertions.assertEquals("Task3", fourthTask.task.name)
     }
 //
 //    @Test

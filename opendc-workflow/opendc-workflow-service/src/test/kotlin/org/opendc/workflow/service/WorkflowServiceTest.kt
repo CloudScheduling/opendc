@@ -24,16 +24,14 @@ package org.opendc.workflow.service
 
 import io.opentelemetry.sdk.metrics.export.MetricProducer
 import kotlinx.coroutines.coroutineScope
-import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.BeforeAll
+import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.TestInstance
+import org.junit.jupiter.api.assertAll
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import org.opendc.compute.service.scheduler.AssignmentExecutionScheduler
-import org.opendc.compute.service.scheduler.FilterScheduler
-import org.opendc.compute.service.scheduler.filters.ComputeFilter
-import org.opendc.compute.service.scheduler.filters.RamFilter
-import org.opendc.compute.service.scheduler.filters.VCpuFilter
-import org.opendc.compute.service.scheduler.weights.VCpuWeigher
 import org.opendc.compute.workload.ComputeServiceHelper
 import org.opendc.compute.workload.topology.HostSpec
 import org.opendc.simulator.compute.kernel.SimSpaceSharedHypervisorProvider
@@ -56,11 +54,10 @@ import org.opendc.workflow.workload.WorkflowSchedulerSpec
 import org.opendc.workflow.workload.WorkflowServiceHelper
 import org.opendc.workflow.workload.toJobs
 import java.io.File
+import java.io.PrintWriter
 import java.nio.file.Paths
 import java.time.Duration
 import java.util.*
-import java.io.PrintWriter
-import kotlin.collections.HashMap
 
 /**
  * Integration test suite for the [WorkflowService].
@@ -79,7 +76,7 @@ internal class WorkflowServiceTest {
     }
 
     @ParameterizedTest(name = "{0} hosts")
-    @ValueSource(ints = [2, 4, 8, 16, 32, 64, 128])
+    @ValueSource(ints = [2, 4])//, 8, 16, 32, 64, 128])
     @DisplayName("Homogeneous environment")
     fun testHomo(numHosts : Int) {
         val config = hashMapOf<String, Any>(
@@ -98,7 +95,7 @@ internal class WorkflowServiceTest {
     }
 
     @ParameterizedTest(name = "{0} hosts")
-    @ValueSource(ints = [2, 4, 8, 16, 32, 64, 128])
+    @ValueSource(ints = [2, 4])//, 8, 16, 32, 64, 128])
     @DisplayName("Heterogeneous environment")
     fun testHetro(numHosts: Int) {
         val config = hashMapOf<String, Any>(

@@ -99,7 +99,7 @@ public class WorkflowServiceImpl(
     /**
      * The running tasks by [Server].
      */
-    private val taskByServer = mutableMapOf<Server, TaskState>()
+    internal val taskByServer = mutableMapOf<Server, TaskState>()
 
     /**
      * The root listener of this scheduler.
@@ -211,6 +211,7 @@ public class WorkflowServiceImpl(
     override suspend fun invoke(job: Job): Unit = suspendCancellableCoroutine { cont ->
         // J1 Incoming Jobs
         val jobInstance = JobState(job, clock.millis(), cont)
+        job.metadata.put("submittedAt", jobInstance.submittedAt)
         val instances = job.tasks.associateWith {
             TaskState(jobInstance, it)
         }
@@ -285,6 +286,7 @@ public class WorkflowServiceImpl(
      */
     private fun doSchedule() {
         // J2 Create list of eligible jobs
+        println("JOb Queue - "+jobQueue.size)
         val iterator = incomingJobs.iterator()
         while (iterator.hasNext()) {
             val jobInstance = iterator.next()
@@ -305,19 +307,22 @@ public class WorkflowServiceImpl(
 
         // J4 Per job
         while (true) {
+            println("Job Queue Size = "+jobQueue.size)
             val jobInstance = jobQueue.poll() ?: break
 
             // Edge-case: job has no tasks
             if (jobInstance.isFinished) {
                 finishJob(jobInstance)
+                //print("Job instance finished - "+jobInstance.tasks.size)
             }
 
             // Add job roots to the scheduling queue
             for (task in jobInstance.tasks) {
                 if (task.state != TaskStatus.READY) {
                     continue
+                    //print("Task in Job not ready" + jobInstance.tasks.size)
                 }
-
+                //print("Task To be added in incoming queue - "+task.task.name)
                 incomingTasks += task
                 rootListener.taskReady(task)
             }
@@ -327,6 +332,7 @@ public class WorkflowServiceImpl(
         val eligibleTasks = HashSet<TaskState>()
         val taskIterator = incomingTasks.iterator()
         while (taskIterator.hasNext()) {
+            print("Task Incoming : ${incomingTasks.size}")
             val taskInstance = taskIterator.next()
             val advice = taskEligibilityPolicy(taskInstance)
             if (advice.stop) {
@@ -389,6 +395,7 @@ public class WorkflowServiceImpl(
             ServerState.RUNNING -> {
                 val task = taskByServer.getValue(server)
                 task.startedAt = clock.millis()
+                task.task.metadata.put("startedAt", task.startedAt)
                 runningTasks.add(1)
                 rootListener.taskStarted(task)
             }
@@ -403,6 +410,7 @@ public class WorkflowServiceImpl(
                 val job = task.job
                 task.state = TaskStatus.FINISHED
                 task.finishedAt = clock.millis()
+                task.task.metadata.put("finishedAt", task.finishedAt)
                 job.tasks.remove(task)
                 activeTasks -= task
 

@@ -109,7 +109,7 @@ public class HEFTPolicy(private val hosts : Set<HostSpec>) : HolisticTaskOrderPo
                 if(firstTaskOnHostCPUSupplied)
                     break // first task was supplied which can be adjusted on the very first CPU
             }
-            task.task.metadata["assigned-host"] = assignedHost!!
+            task.task.metadata["assigned-host"] = Pair(assignedHost!!.uid, assignedHost!!.name)
             task.task.metadata["finish-time"] = earliestFinishTime
             task.task.metadata["start-time"] = currentStartTime
             // for every CPU, ordered list of a task assigned in the sorted order of task scheduled

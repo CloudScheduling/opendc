@@ -78,7 +78,7 @@ public fun Trace.toJobs(): List<Job> {
             taskDependencies[task] = reader.get(TASK_PARENTS).map { it.toLong() }.toSet()
             taskDependents[task] = reader.get(TASK_CHILDREN).map{ it.toLong() }.toSet()
             // taskDependents[task] = reader.get(TASK_CHILDREN).map{it.split(" ")}.toSet()
-            (workflow.metadata as MutableMap<String, Any>).merge("WORKFLOW_SUBMIT_TIME", submitTime.toEpochMilli()) { a, b -> min(a as Long, b as Long) }
+            workflow.metadata.merge("WORKFLOW_SUBMIT_TIME", submitTime.toEpochMilli()) { a, b -> min(a as Long, b as Long) }
             (workflow.tasks as MutableSet<Task>).add(task)
         }
 
@@ -91,12 +91,12 @@ public fun Trace.toJobs(): List<Job> {
         }
 
         // Resolve dependents for all tasks
-        for ((task, deps) in taskDependents) {
-            for (dep in deps) {
-                val children = requireNotNull(tasks[dep]) { "Dependent task with id $dep not found" }
-                (task.dependents as MutableSet<Task>).add(children)
-            }
-        }
+//        for ((task, deps) in taskDependents) {
+//            for (dep in deps) {
+//                val children = requireNotNull(tasks[dep]) { "Dependent task with id $dep not found" }
+//                (task.dependents as MutableSet<Task>).add(children)
+//            }
+//        }
     } finally {
         reader.close()
     }
