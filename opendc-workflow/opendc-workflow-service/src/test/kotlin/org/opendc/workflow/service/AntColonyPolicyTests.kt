@@ -1,5 +1,91 @@
 package org.opendc.workflow.service
 
+import org.junit.jupiter.api.Test
+import org.opendc.compute.workload.topology.HostSpec
+import org.opendc.simulator.compute.kernel.SimSpaceSharedHypervisorProvider
+import org.opendc.simulator.compute.model.MachineModel
+import org.opendc.simulator.compute.model.MemoryUnit
+import org.opendc.simulator.compute.model.ProcessingNode
+import org.opendc.simulator.compute.model.ProcessingUnit
+import org.opendc.simulator.compute.power.ConstantPowerModel
+import org.opendc.simulator.compute.power.SimplePowerDriver
+import org.opendc.simulator.core.runBlockingSimulation
+import org.opendc.workflow.api.Job
+import org.opendc.workflow.api.Task
+import org.opendc.workflow.service.internal.JobState
+import org.opendc.workflow.service.internal.TaskState
+import org.opendc.workflow.service.scheduler.task.AntColonyPolicy
+import java.util.*
+import kotlin.coroutines.Continuation
+import kotlin.coroutines.CoroutineContext
+
 class AntColonyPolicyTests {
-    
+    @Test
+    fun tourOnlyGetsBetter() = runBlockingSimulation {
+        val hostSpecs = listOf(createDefaultHostSpec(1))
+
+        val tasks = setOf(
+            Task(UUID(0L, 1L), "Task1", emptySet(), mapOf("cpu-cycles" to 1000L)),
+            Task(UUID(0L, 2L), "Task2", emptySet(), mapOf("cpu-cycles" to 1000L)),
+            Task(UUID(0L, 3L), "Task3", emptySet(), mapOf("cpu-cycles" to 1000L)),
+            Task(UUID(0L, 4L), "Task4", emptySet(), mapOf("cpu-cycles" to 1000L)),
+            Task(UUID(0L, 5L), "Task5", emptySet(), mapOf("cpu-cycles" to 1000L)),
+            Task(UUID(0L, 6L), "Task6", emptySet(), mapOf("cpu-cycles" to 1500L)),
+            Task(UUID(0L, 7L), "Task7", emptySet(), mapOf("cpu-cycles" to 1500L)),
+            Task(UUID(0L, 8L), "Task8", emptySet(), mapOf("cpu-cycles" to 2000L)),
+            Task(UUID(0L, 9L), "Task9", emptySet(), mapOf("cpu-cycles" to 2000L)),
+            Task(UUID(0L, 10L), "Task10", emptySet(), mapOf("cpu-cycles" to 2000L)),
+            Task(UUID(0L, 11L), "Task11", emptySet(), mapOf("cpu-cycles" to 2000L)),
+            Task(UUID(0L, 12L), "Task12", emptySet(), mapOf("cpu-cycles" to 2000L)),
+            Task(UUID(0L, 13L), "Task13", emptySet(), mapOf("cpu-cycles" to 2000L)),
+            Task(UUID(0L, 14L), "Task14", emptySet(), mapOf("cpu-cycles" to 3000L)),
+            Task(UUID(0L, 15L), "Task15", emptySet(), mapOf("cpu-cycles" to 3000L)),
+            Task(UUID(0L, 16L), "Task16", emptySet(), mapOf("cpu-cycles" to 3000L)),
+            Task(UUID(0L, 17L), "Task17", emptySet(), mapOf("cpu-cycles" to 3000L)),
+            Task(UUID(0L, 18L), "Task18", emptySet(), mapOf("cpu-cycles" to 4000L)),
+            Task(UUID(0L, 19L), "Task19", emptySet(), mapOf("cpu-cycles" to 7000L)),
+            Task(UUID(0L, 20L), "Task20", emptySet(), mapOf("cpu-cycles" to 12000L)))
+        val taskStates = createInputForPolicy(tasks, coroutineContext)
+
+        val policy = AntColonyPolicy(hostSpecs)
+        val orderedTasks = policy.orderTasks(taskStates)
+        println(orderedTasks)
+    }
+
+    private fun createDefaultHostSpec(uid: Int): HostSpec {
+        val cpu = ProcessingNode("PolicyMakers", "x86", "EPIC1", 4)
+        val cores = listOf(
+            ProcessingUnit(cpu, 1, 1000.0),
+            ProcessingUnit(cpu, 2, 1000.0),
+            ProcessingUnit(cpu, 3, 1000.0),
+            ProcessingUnit(cpu, 4, 1000.0),
+            ProcessingUnit(cpu, 5, 2000.0),
+            ProcessingUnit(cpu, 6, 2000.0),
+            ProcessingUnit(cpu, 7, 2000.0),
+            ProcessingUnit(cpu, 8, 2000.0),
+            ProcessingUnit(cpu, 9, 3000.0),
+            ProcessingUnit(cpu, 10, 3000.0),
+            ProcessingUnit(cpu, 11, 8000.0))
+
+        val machineModel = MachineModel(cores, emptyList<MemoryUnit>())
+        return createHostSpec(uid, machineModel)
+    }
+
+    private fun createHostSpec(uid: Int, machineModel: MachineModel): HostSpec {
+        return HostSpec(
+            UUID(0, uid.toLong()),
+            "host-$uid",
+            emptyMap(),
+            machineModel,
+            SimplePowerDriver(ConstantPowerModel(0.0)),
+            SimSpaceSharedHypervisorProvider()
+        )
+    }
+
+    private fun createInputForPolicy(tasks: Set<Task>, context: CoroutineContext): List<TaskState> {
+        val cont = Continuation<Unit>(context) { ; }
+        val job = JobState(Job(UUID.randomUUID(), "onlyJob", tasks), 0, cont)
+        return tasks.map { TaskState(job, it) }
+    }
+
 }

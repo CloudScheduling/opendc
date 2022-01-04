@@ -1,153 +1,207 @@
 package org.opendc.workflow.service.scheduler.task
 
+import org.opendc.compute.workload.topology.HostSpec
 import org.opendc.workflow.service.internal.TaskState
 import org.opendc.workflow.service.internal.WorkflowServiceImpl
-import org.opendc.compute.workload.topology.HostSpec
-import org.opendc.simulator.compute.model.ProcessingUnit
 import java.util.*
-import kotlin.Comparator
 import kotlin.math.pow
 import kotlin.random.Random
 
-internal class Ant() {
-    val Path: LinkedList<Pair<TaskState, ProcessingUnit>> = LinkedList()
-    var TourMakespan: Long = 0L
+internal class Core(val id: Int, val frequency: Double, tasks: List<TaskState>) {
+    private val execTimes: MutableMap<TaskState, Double> = mutableMapOf()
+    private val scheduledTasks: MutableList<TaskState> = mutableListOf()
+    private var activeTime: Double = 0.0
+
+    init {
+        for (task in tasks) {
+            val cpuCycles = task.task.metadata["cpu-cycles"] as Long
+            val execTime = cpuCycles / frequency
+            this.execTimes[task] = execTime
+        }
+    }
+
+    fun getCompletionTimeForTask(task: TaskState): Double {
+        return activeTime + execTimes.getValue(task)
+    }
+
+    fun scheduleTask(task: TaskState) {
+        scheduledTasks.add(task)
+        activeTime += execTimes.getValue(task)
+    }
+
+    fun getActiveTime() = activeTime
+
+    fun reset() {
+        scheduledTasks.clear()
+        activeTime = 0.0
+    }
 }
 
-internal data class Constants(val NumIterations: Int,
-                              val NumAnts: Int,
-                              val Alpha: Double,
-                              val Beta: Double,
-                              val InitialPheromone: Double,
-                              val Rho: Double,
+internal class Tour() {
+    private val nodes: MutableList<Pair<TaskState, Core>> = mutableListOf()
+    private var makespan: Double = 0.0
+
+    fun addNode(task: TaskState, core: Core) {
+        nodes.add(Pair(task, core))
+        makespan = maxOf(makespan, core.getActiveTime())
+    }
+
+    fun getMakespan() = makespan
+    fun getNodes() = nodes.toList()
+}
+
+internal class Ant(val id: Int) {
+    private var _tour = Tour()
+    val tour: Tour
+        get() { return _tour }
+
+    fun addNode(task: TaskState, core: Core) {
+        core.scheduleTask(task)
+        tour.addNode(task, core)
+    }
+
+    fun reset() {
+        _tour = Tour()
+    }
+}
+
+internal data class Constants(val numIterations: Int,
+                              val numAnts: Int,
+                              val alpha: Double,
+                              val beta: Double,
+                              val initialPheromone: Double,
+                              val rho: Double,
                               val Q: Double) {}
 
 public class AntColonyPolicy(public val hosts: List<HostSpec>) : HolisticTaskOrderPolicy {
-    private val _constants = Constants(NumIterations = 1000, NumAnts = 100, Alpha = 0.5, Beta = 0.5,
-                                       InitialPheromone = 5.0, Rho = 0.4, Q = 100.0)
+    private val _constants = Constants(numIterations = 300, numAnts = 30, alpha = 0.4, beta = 0.6,
+                                       initialPheromone = 5.0, rho = 0.4, Q = 30.0)
     private val _cores = hosts.flatMap { it.model.cpus }
 
     public override fun orderTasks(tasks: List<TaskState>): Queue<TaskState> {
-        val chunkSize = _cores.size
-        val chunks = tasks.chunked(chunkSize)
-
-        for (chunk in chunks) {
-            acoProc(chunk, _cores)
-        }
+        val cores = _cores.map { Core(it.id, it.frequency, tasks) }
+        acoProc(tasks, cores)
 
         return LinkedList()
     }
 
-    private fun acoProc(tasks: List<TaskState>, cores: List<ProcessingUnit>): Unit {
-        var bestTour: List<Pair<TaskState, ProcessingUnit>> = emptyList()
-        var bestTourMakespan = Long.MAX_VALUE
+    private fun acoProc(tasks: List<TaskState>, cores: List<Core>) {
+        val bestTours: MutableSet<Tour> = mutableSetOf()
 
-        val ants = setOf<Ant>()
+        val ants = initializeAnts(_constants.numAnts)
+        val trails = initializeTrails(_constants.initialPheromone, tasks, cores)
 
-        val pheromones = initializePheromones(_constants.InitialPheromone, tasks, cores)
-
-        val execTimes = calculateExecutionTimes(tasks, cores)
-
-        for (i in 0 until _constants.NumIterations) {
+        for (i in 0 until _constants.numIterations) {
             for (ant in ants) {
-                ant.Path.clear()
-                val unvisitedCores = cores.toMutableList()
+                ant.reset()
+                for (core in cores)
+                    core.reset()
 
-                val startTask = tasks[0]
-                val startCore = unvisitedCores.random()
-                ant.Path.addLast(Pair(startTask, startCore))
-                unvisitedCores.remove(startCore)
-
-                for (task in tasks.drop(1)) {
-                    val selectedCore = selectCore(task,  unvisitedCores, execTimes)
-
-                    ant.Path.addLast(Pair(task, selectedCore))
-                    unvisitedCores.remove(selectedCore)
-
-                    val execTime = execTimes.getValue(Pair(task, selectedCore))
-                    ant.TourMakespan = maxOf(ant.TourMakespan, execTime)
+                for (task in tasks) {
+                    val selectedCore = selectCore(task, cores, trails)
+                    ant.addNode(task, selectedCore)
                 }
 
-                //TODO Assign bestTour and bestTourMakespan
+                val minMakespan = bestTours.firstOrNull()?.getMakespan() ?: Double.MAX_VALUE
+                if (ant.tour.getMakespan() < minMakespan) {
+                    bestTours.clear()
+                    bestTours.add(ant.tour)
+                } else if (ant.tour.getMakespan() == minMakespan) {
+                    bestTours.add(ant.tour)
+                }
             }
 
-            updatePheromoneLocally(pheromones, ants)
-            updatePheromoneGlobally(pheromones, bestTour, bestTourMakespan)
+            updatePheromoneLocally(trails, ants)
+            updatePheromoneGlobally(trails, bestTours)
+
+            for (tour in bestTours) {
+                printTour(tour)
+            }
         }
     }
 
-    private fun initializePheromones(initialValue: Double, tasks: List<TaskState>, cores: List<ProcessingUnit>): MutableMap<Pair<TaskState, ProcessingUnit>, Double> {
-        val pheromones = mutableMapOf<Pair<TaskState, ProcessingUnit>, Double>()
+    private fun initializeAnts(numAnts: Int) : Set<Ant> {
+        return (0 until numAnts).map { Ant(it) }.toSet()
+    }
+
+    private fun initializeTrails(initialValue: Double, tasks: List<TaskState>, cores: List<Core>): MutableMap<Pair<TaskState, Core>, Double> {
+        val trails = mutableMapOf<Pair<TaskState, Core>, Double>()
         for (task in tasks) {
             for (core in cores) {
-                pheromones[Pair(task, core)] = initialValue
+                trails[Pair(task, core)] = initialValue
             }
         }
-        return pheromones
+        return trails
     }
 
-    private fun calculateExecutionTimes(tasks: List<TaskState>, cores: List<ProcessingUnit>): Map<Pair<TaskState, ProcessingUnit>, Long> {
-        val execTimes = mutableMapOf<Pair<TaskState, ProcessingUnit>, Long>()
-        for (task in tasks) {
-            for (core in cores) {
-                val cpuCycles = task.task.metadata["cpu-cycles"] as Long
-                val execTime = cpuCycles / core.frequency
-                execTimes[Pair(task, core)] = execTime.toLong()
-            }
-        }
-        return execTimes
-    }
-
-    private fun selectCore(task: TaskState, unvisitedCores: List<ProcessingUnit>, execTimes: Map<Pair<TaskState, ProcessingUnit>, Long>,
-                           pheromones: Map<Pair<TaskState, ProcessingUnit>, Double>): ProcessingUnit {
+    private fun selectCore(task: TaskState, cores: List<Core>, trails: Map<Pair<TaskState, Core>, Double>): Core {
         val attractivenesses = mutableListOf<Double>()
         var attractivenessSum = 0.0
-        for (i in unvisitedCores.indices) {
-            val key = Pair(task, unvisitedCores[i])
-            val pheromone = pheromones.getValue(key)
-            val execTime = execTimes.getValue(key)
+        for (i in cores.indices) {
+            val core = cores[i]
+            val trailLevel = trails.getValue(Pair(task, core))
+            val completionTime = core.getCompletionTimeForTask(task)
 
-            val attractiveness = calculateAttractiveness(pheromone, execTime)
-            attractivenesses[i] = attractiveness
+            val attractiveness = calculateAttractiveness(trailLevel, completionTime)
+            attractivenesses.add(i, attractiveness)
             attractivenessSum += attractiveness
         }
 
         val toss = Random.nextDouble(attractivenessSum)
         var x = 0.0
-        for (i in unvisitedCores.indices) {
+        for (i in cores.indices) {
             x += attractivenesses[i]
             if (x > toss) {
-                return unvisitedCores[i]
+                return cores[i]
             }
         }
         throw Exception("Toss was greater than attractivenessSum.")
     }
 
-    private fun calculateAttractiveness(pheromone: Double, execTime: Long): Double {
-        val desirability = 1.0 / execTime
-        return pheromone.pow(_constants.Alpha) * desirability.pow(_constants.Beta)
+    private fun calculateAttractiveness(trailLevel: Double, completionTime: Double): Double {
+        val desirability = 1.0 / completionTime
+        return trailLevel.pow(_constants.alpha) * desirability.pow(_constants.beta)
     }
 
-    private fun updatePheromoneLocally(pheromones: MutableMap<Pair<TaskState, ProcessingUnit>, Double>, ants: Set<Ant>) {
-        for ((node, oldValue) in pheromones.entries) {
-            pheromones[node] = (1 - _constants.Rho) * oldValue
+    private fun updatePheromoneLocally(trails: MutableMap<Pair<TaskState, Core>, Double>, ants: Set<Ant>) {
+        for ((node, oldValue) in trails.entries) {
+            trails[node] = (1 - _constants.rho) * oldValue
         }
 
         for (ant in ants) {
-            for (node in ant.Path) {
-                val pheromoneDelta = _constants.Q / ant.TourMakespan
-                val oldValue = pheromones.getValue(node)
-                pheromones[node] = oldValue + pheromoneDelta
+            for (node in ant.tour.getNodes()) {
+                val pheromoneDelta = _constants.Q / ant.tour.getMakespan()
+                val oldValue = trails.getValue(node)
+                trails[node] = oldValue + pheromoneDelta
             }
         }
     }
 
-    private fun updatePheromoneGlobally(pheromones: MutableMap<Pair<TaskState, ProcessingUnit>, Double>,
-                                        bestTour: List<Pair<TaskState, ProcessingUnit>>, bestTourMakespan: Long) {
-        for (node in bestTour) {
-            val pheromoneDelta = _constants.Q / bestTourMakespan
-            val oldValue = pheromones.getValue(node)
-            pheromones[node] = oldValue + pheromoneDelta
+    private fun updatePheromoneGlobally(trails: MutableMap<Pair<TaskState, Core>, Double>, bestTours: Set<Tour>) {
+        for (tour in bestTours) {
+            for (node in tour.getNodes()) {
+                val pheromoneDelta = _constants.Q / tour.getMakespan()
+                val oldValue = trails.getValue(node)
+                trails[node] = oldValue + pheromoneDelta
+            }
+        }
+    }
+
+    private fun printTour(tour: Tour) {
+        println("Makespan: ${tour.getMakespan()}")
+        val tasksPerCore = mutableMapOf<Core, MutableSet<TaskState>>()
+        for ((task, core) in tour.getNodes()) {
+            tasksPerCore.putIfAbsent(core, mutableSetOf())
+            tasksPerCore.getValue(core).add(task)
+        }
+
+        for (core in tasksPerCore.keys) {
+            val tasks = tasksPerCore[core]!!
+            var activeTime = 0.0
+            for (task in tasks) {
+                activeTime += (task.task.metadata["cpu-cycles"] as Long) / core.frequency
+            }
+            println("    Core ${core.id}, active time: ${activeTime}, numTasks: ${tasks.size}")
         }
     }
 
