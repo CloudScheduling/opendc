@@ -76,43 +76,39 @@ internal class WorkflowServiceTest {
     }
 
     @ParameterizedTest(name = "{0} hosts")
-    @ValueSource(ints = [2, 4])//, 8, 16, 32, 64, 128])
+    @ValueSource(ints = [2, 4, 6, 8, 10, 12, 24])
     @DisplayName("Homogeneous environment")
     fun testHomo(numHosts : Int) {
         val config = hashMapOf<String, Any>(
-            "path_metrics" to "$basePath/specTrace2_HEFT_homo_scale${numHosts}_metrics.csv",
-            "path_makespan" to "$basePath/specTrace2_HEFT_homo_scale${numHosts}_makespan.csv",
-            "path_tasksOverTime" to "$basePath/specTrace2_HEFT_homo_scale${numHosts}_taksOvertime.csv",
-            "path_hostInfo" to "$basePath/specTrace2_HEFT_homo_scale${numHosts}_hostInfo.csv",
+            "path_metrics" to "$basePath/specTrace2_HEFT_homogeneous_scale${numHosts}_metrics.csv",
+            "path_makespan" to "$basePath/specTrace2_HEFT_homogeneous_scale${numHosts}_makespan.csv",
+            "path_tasksOverTime" to "$basePath/specTrace2_HEFT_homogeneous_scale${numHosts}_taksOvertime.csv",
+            "path_hostInfo" to "$basePath/specTrace2_HEFT_homogeneous_scale${numHosts}_hostInfo.csv",
             "host_function" to listOf(Pair(numHosts, { id : Int -> createHomogenousHostSpec(id)})),
             "metric_readoutMinutes" to readOutInterval.toLong(),
-            //"tracePath" to "/spec_trace-2_parquet",
-             "tracePath" to "/trace3.gwf",
-            //"traceFormat" to "wtf",
-             "traceFormat" to "gwf",
+            "tracePath" to "/spec_trace-2_parquet",
+            "traceFormat" to "wtf",
             "numberJobs" to 200.toLong(),
         )
         testTemplate(config)
     }
 
     @ParameterizedTest(name = "{0} hosts")
-    @ValueSource(ints = [2, 4])//, 8, 16, 32, 64, 128])
+    @ValueSource(ints = [2, 4, 6, 8, 10, 12, 24])
     @DisplayName("Heterogeneous environment")
     fun testHetro(numHosts: Int) {
         val config = hashMapOf<String, Any>(
-            "path_metrics" to "$basePath/specTrace2_HEFT_hetro_scale${numHosts}_metrics.csv",
-            "path_makespan" to "$basePath/specTrace2_HEFT_hetro_scale${numHosts}_makespan.csv",
-            "path_tasksOverTime" to "$basePath/specTrace2_HEFT_hetro_scale${numHosts}_taksOvertime.csv",
-            "path_hostInfo" to "$basePath/specTrace2_HEFT_hetro_scale${numHosts}_hostInfo.csv",
+            "path_metrics" to "$basePath/specTrace2_HEFT_heterogeneous_scale${numHosts}_metrics.csv",
+            "path_makespan" to "$basePath/specTrace2_HEFT_heterogeneous_scale${numHosts}_makespan.csv",
+            "path_tasksOverTime" to "$basePath/specTrace2_HEFT_heterogeneous_scale${numHosts}_taksOvertime.csv",
+            "path_hostInfo" to "$basePath/specTrace2_HEFT_heterogeneous_scale${numHosts}_hostInfo.csv",
             "host_function" to listOf(
                 Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec(id)}),
                 Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec2(id)}),
             ),
             "metric_readoutMinutes" to readOutInterval.toLong(),
-            //"tracePath" to "/spec_trace-2_parquet",
-            "tracePath" to "/trace3.gwf",
-            //"traceFormat" to "wtf",
-            "traceFormat" to "gwf",
+            "tracePath" to "/spec_trace-2_parquet",
+            "traceFormat" to "wtf",
             "numberJobs" to 200.toLong(),
         )
         testTemplate(config)
