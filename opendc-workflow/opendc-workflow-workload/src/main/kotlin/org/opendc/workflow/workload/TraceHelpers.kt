@@ -65,7 +65,6 @@ public fun Trace.toJobs(): List<Job> {
                 UUID(0L, id),
                 "<unnamed>",
                 HashSet(),
-                HashSet(),
                 mutableMapOf(
                     "workload" to workload,
                     WORKFLOW_TASK_CORES to grantedCpus,

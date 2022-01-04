@@ -36,7 +36,6 @@ public data class Job(
     val uid: UUID,
     val name: String,
     val tasks: Set<Task>,
-    // val childTasks: Set<Task>,
     val metadata: MutableMap<String, Any> = mutableMapOf()
 ) {
     override fun equals(other: Any?): Boolean = other is Job && uid == other.uid

@@ -36,8 +36,7 @@ import java.util.*
 public data class Task(
         val uid: UUID,
         val name: String,
-        var dependencies: Set<Task>,
-        var dependents: Set<Task>,
+        val dependencies: Set<Task>,
         val metadata: MutableMap<String, Any> = mutableMapOf()
 ) {
     override fun equals(other: Any?): Boolean = other is Task && uid == other.uid

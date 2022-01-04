@@ -28,15 +28,14 @@ class HEFTTest {
 
     @Test
     fun whenThereIsSingleHostWithSingleCore_TasksAreOfTypeBothDependentAndIndependent() = runBlockingSimulation {
-        var task1: Task = Task(UUID(0L, 1L), "Task0", HashSet(),HashSet(), mutableMapOf("cpu-cycles" to 1000L, WORKFLOW_TASK_CORES to 1))
-        var task2 : Task = Task(UUID(0L, 2L), "Task1", mutableSetOf(task1),HashSet(), mutableMapOf("cpu-cycles" to 1000L, WORKFLOW_TASK_CORES to 1))
-        var task3 : Task = Task(UUID(0L, 3L), "Task2", HashSet(),HashSet(), mutableMapOf("cpu-cycles" to 1100L, WORKFLOW_TASK_CORES to 1))
-        task1.dependents = mutableSetOf(task2)
+        val task0 = Task(UUID(0L, 1L), "Task0", HashSet(), mutableMapOf("cpu-cycles" to 1000L, WORKFLOW_TASK_CORES to 1))
+        val task1 = Task(UUID(0L, 2L), "Task1", setOf(task0), mutableMapOf("cpu-cycles" to 1000L, WORKFLOW_TASK_CORES to 1))
+        val task2 = Task(UUID(0L, 3L), "Task2", HashSet(), mutableMapOf("cpu-cycles" to 1100L, WORKFLOW_TASK_CORES to 1))
 
-        val tasks = hashSetOf(
+        val tasks = setOf(
+            task0,
             task1,
-            task2,
-            task3)
+            task2)
 
         val hostSpecs = mutableSetOf(createDefaultHostSpec(1))
         val heft = HEFTPolicy(hostSpecs)
@@ -56,9 +55,9 @@ class HEFTTest {
 
     @Test
     fun whenThereAreTwoHostsWithSingleCoreForTwoTasks_EveryTaskIsIndependentAndAssignedToOneOfTheHosts() = runBlockingSimulation {
-        var task1: Task = Task(UUID(0L, 1L), "Task0", HashSet(),HashSet(), mutableMapOf("cpu-cycles" to 1000L, WORKFLOW_TASK_CORES to 1))
-        var task2 : Task = Task(UUID(0L, 2L), "Task1", HashSet(),HashSet(), mutableMapOf("cpu-cycles" to 1000L, WORKFLOW_TASK_CORES to 1))
-        val tasks = hashSetOf(
+        val task1 = Task(UUID(0L, 1L), "Task0", HashSet(), mutableMapOf("cpu-cycles" to 1000L, WORKFLOW_TASK_CORES to 1))
+        val task2 = Task(UUID(0L, 2L), "Task1", HashSet(), mutableMapOf("cpu-cycles" to 1000L, WORKFLOW_TASK_CORES to 1))
+        val tasks = setOf(
             task1, task2)
 
         val hostSpecs = mutableSetOf<HostSpec>(createDefaultHostSpec(0), createDefaultHostSpec(1))
@@ -73,17 +72,16 @@ class HEFTTest {
 
     @Test
     fun whenTasksAreDependentOnOtherTasksToBeScheduledOnTwoHosts_BothTasksAreAssignedToEachHost() = runBlockingSimulation {
-        var task1: Task = Task(UUID(0L, 1L), "Task0", HashSet(),HashSet(), mutableMapOf("cpu-cycles" to 1000L, WORKFLOW_TASK_CORES to 1))
-        var task2 : Task = Task(UUID(0L, 2L), "Task1", mutableSetOf(task1),HashSet(), mutableMapOf("cpu-cycles" to 1010L, WORKFLOW_TASK_CORES to 1))
-        var task3 : Task = Task(UUID(0L, 3L), "Task2", HashSet(),HashSet(), mutableMapOf("cpu-cycles" to 1000L, WORKFLOW_TASK_CORES to 1))
-        var task4 : Task = Task(UUID(0L, 4L), "Task3", mutableSetOf(task3),HashSet(), mutableMapOf("cpu-cycles" to 1000L, WORKFLOW_TASK_CORES to 1))
-        task1.dependents = mutableSetOf(task2)
-        task3.dependents = mutableSetOf(task4)
-        val tasks = hashSetOf(
+        val task0 = Task(UUID(0L, 1L), "Task0", HashSet(), mutableMapOf("cpu-cycles" to 1000L, WORKFLOW_TASK_CORES to 1))
+        val task1 = Task(UUID(0L, 2L), "Task1", setOf(task0), mutableMapOf("cpu-cycles" to 1010L, WORKFLOW_TASK_CORES to 1))
+        val task2 = Task(UUID(0L, 3L), "Task2", HashSet(), mutableMapOf("cpu-cycles" to 1000L, WORKFLOW_TASK_CORES to 1))
+        val task3 = Task(UUID(0L, 4L), "Task3", setOf(task2), mutableMapOf("cpu-cycles" to 1000L, WORKFLOW_TASK_CORES to 1))
+
+        val tasks = setOf(
+            task0,
             task1,
             task2,
-            task3,
-            task4)
+            task3)
 
         val cpu0 = ProcessingNode("PolicyMakers", "x86", "EPIC1", 1)
         val cores0 = listOf(ProcessingUnit(cpu0, 1, 3000.0))

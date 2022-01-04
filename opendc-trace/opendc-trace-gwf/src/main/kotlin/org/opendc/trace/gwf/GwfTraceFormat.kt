@@ -62,7 +62,6 @@ public class GwfTraceFormat : TraceFormat {
                     TASK_REQ_NCPUS,
                     TASK_ALLOC_NCPUS,
                     TASK_PARENTS,
-                    TASK_CHILDREN,
                 ),
                 listOf(TASK_WORKFLOW_ID)
             )
