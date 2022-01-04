@@ -76,7 +76,7 @@ internal class WorkflowServiceTest {
     }
 
     @ParameterizedTest(name = "{0} hosts")
-    @ValueSource(ints = [2, 4, 6, 8, 10, 12, 24])
+    @ValueSource(ints = [2, 4, 6, 8, 10, 12, 14])
     @DisplayName("Homogeneous environment")
     fun testHomo(numHosts : Int) {
         val config = hashMapOf<String, Any>(
@@ -94,7 +94,7 @@ internal class WorkflowServiceTest {
     }
 
     @ParameterizedTest(name = "{0} hosts")
-    @ValueSource(ints = [2, 4, 6, 8, 10, 12, 24])
+    @ValueSource(ints = [2, 4, 6, 8, 10, 12, 14])
     @DisplayName("Heterogeneous environment")
     fun testHetro(numHosts: Int) {
         val config = hashMapOf<String, Any>(
