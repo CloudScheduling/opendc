@@ -83,7 +83,7 @@ public class ComputeServiceHelper(
     /**
      * The hosts that belong to this class.
      */
-    private val hosts = mutableSetOf<SimHost>()
+    public val hosts: MutableSet<SimHost> = mutableSetOf<SimHost>()
 
     init {
         val (service, serviceMeterProvider) = createService(scheduler, schedulingQuantum)
