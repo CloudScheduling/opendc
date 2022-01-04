@@ -76,7 +76,7 @@ public fun Trace.toJobs(): List<Job> {
 
             tasks[id] = task
             taskDependencies[task] = reader.get(TASK_PARENTS).map { it.toLong() }.toSet()
-            taskDependents[task] = reader.get(TASK_CHILDREN).map{it.toLong()}.toSet()
+            taskDependents[task] = reader.get(TASK_CHILDREN).map{ it.toLong() }.toSet()
             // taskDependents[task] = reader.get(TASK_CHILDREN).map{it.split(" ")}.toSet()
             (workflow.metadata as MutableMap<String, Any>).merge("WORKFLOW_SUBMIT_TIME", submitTime.toEpochMilli()) { a, b -> min(a as Long, b as Long) }
             (workflow.tasks as MutableSet<Task>).add(task)

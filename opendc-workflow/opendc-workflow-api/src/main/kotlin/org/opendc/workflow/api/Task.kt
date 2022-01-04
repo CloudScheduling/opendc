@@ -34,11 +34,11 @@ import java.util.*
  * @property metadata Additional metadata for this task.
  */
 public data class Task(
-    val uid: UUID,
-    val name: String,
-    val dependencies: Set<Task>,
-    val dependents: Set<Task>,
-    val metadata: MutableMap<String, Any> = mutableMapOf()
+        val uid: UUID,
+        val name: String,
+        var dependencies: Set<Task>,
+        var dependents: Set<Task>,
+        val metadata: MutableMap<String, Any> = mutableMapOf()
 ) {
     override fun equals(other: Any?): Boolean = other is Task && uid == other.uid
 
