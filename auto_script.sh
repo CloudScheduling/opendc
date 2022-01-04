@@ -24,7 +24,7 @@ mkdir "Max-Min"
 echo "Generated a separate directory Max-Min -> Max-Min policy"
 cd "Max-Min" # cd "$basepath" to go to the starting location
 echo "Cloning Max-Min policy from the respective branch of OpenDC repository into this new directory"
-git clone -b MaxMin_Policy --single-branch https://github.com/CloudScheduling/opendc.git
+git clone -b MaxMin_v2 --single-branch https://github.com/CloudScheduling/opendc.git
 # Navigating to the path of WorkflowServiceTest.kt class for building and executing the tests
 # cd "opendc/opendc-workflow/opendc-workflow-service"
 # To query tests in the project - gradle :opendc-workflow:opendc-workflow-service:tasks
