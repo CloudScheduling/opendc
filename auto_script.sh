@@ -62,6 +62,35 @@ echo "Performing gradle build to execute the tests - ELoP policy"
 gradle -q :opendc-workflow:opendc-workflow-service:test
 echo "The respective CSVs have been generated and placed in the ELoP directory!"
 cd ../..
+echo "Returned to the base-path"
+echo "----------------------------------------------"
+echo "-------------------HEFT--------------------"
+# Taking Shekhar's policy (HEFT) next, and trying to generate the build using Gradle
+mkdir "HEFT"
+echo "Generated a separate directory HEFT -> HEFT policy"
+cd "HEFT" # cd "$basepath" to go to the starting location
+echo "Cloning HEFT policy from the respective branch of OpenDC repository into this new directory"
+git clone -b HEFT_Policy --single-branch https://github.com/CloudScheduling/opendc.git
+cd opendc
+echo "Performing gradle build to execute the tests - HEFT policy"
+gradle -q :opendc-workflow:opendc-workflow-service:test
+echo "The respective CSVs have been generated and placed in the HEFT directory!"
+cd ../..
+echo "Returned to the base-path"
+echo "----------------------------------------------"
+echo "-------------------Random--------------------"
+# Taking Random policy next, and trying to generate the build using Gradle
+mkdir "Random"
+echo "Generated a separate directory Random -> Random policy"
+cd "Random" # cd "$basepath" to go to the starting location
+echo "Cloning Random policy from the respective branch of OpenDC repository into this new directory"
+git clone -b Random_Policy --single-branch https://github.com/CloudScheduling/opendc.git
+cd opendc
+echo "Performing gradle build to execute the tests - Random policy"
+gradle -q :opendc-workflow:opendc-workflow-service:test
+echo "The respective CSVs have been generated and placed in the Random directory!"
+cd ../..
+echo "Returned to the base-path"
 echo "----------------------End of the script-----------------------"
 end=$(date +"%s")
 runtime=$(($end-$begin))
