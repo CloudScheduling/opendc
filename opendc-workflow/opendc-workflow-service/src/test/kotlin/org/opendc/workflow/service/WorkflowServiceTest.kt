@@ -142,7 +142,7 @@ internal class WorkflowServiceTest {
 
         val hostFns = config["host_function"] as List<Pair<Int, (Int) -> HostSpec>>
         var offSet = 0
-        val hostSpecs = HashSet<HostSpec>()
+        val hostSpecs = mutableSetOf<HostSpec>()
         for (elem in hostFns) {
             val hostCount = elem.first
             val hostFn = elem.second
