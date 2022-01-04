@@ -137,7 +137,7 @@ internal class WorkflowServiceTest {
         val makespanFile =  PrintWriter(config["path_makespan"] as String)
         val tasksOverTimeFile = PrintWriter(config["path_tasksOverTime"] as String)
 
-        metricsFile.appendLine("No# Tasks running,cpuUsage(CPU usage of all CPUs of the host in MHz),energyUsage(Power usage of the host in W)")
+        metricsFile.appendLine("Timestamp(s),HostId,No# Tasks running,cpuUsage(CPU usage of all CPUs of the host in MHz),energyUsage(Power usage of the host in W)")
         makespanFile.appendLine("Makespan (s),Workflow Response time (s)")
         tasksOverTimeFile.appendLine("Time (s),Tasks #")
 
