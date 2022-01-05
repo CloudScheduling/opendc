@@ -69,13 +69,13 @@ import kotlin.collections.HashMap
 @DisplayName("WorkflowService")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 internal class WorkflowServiceTest {
-    val basePath = System.getProperty("user.home") + "/OpenDC Test Automation/Min-Min"
+    val basePath = System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min"
     val readOutInterval = 20
 
     @BeforeAll
     fun setup() {
         // create the folder
-        val file = File(System.getProperty("user.home") + "/OpenDC Test Automation/Min-Min").mkdirs()
+        val file = File(System.getProperty("user.home") + "/OpenDC Test Automation/Max-Min").mkdirs()
     }
 
     @ParameterizedTest(name = "{0} hosts")
@@ -83,10 +83,10 @@ internal class WorkflowServiceTest {
     @DisplayName("Homogeneous environment")
     fun testHomo(numHosts : Int) {
         val config = hashMapOf<String, Any>(
-            "path_metrics" to "$basePath/specTrace2_minMin_homogeneous_scale${numHosts}_metrics.csv",
-            "path_makespan" to "$basePath/specTrace2_minMin_homogeneous_scale${numHosts}_makespan.csv",
-            "path_tasksOverTime" to "$basePath/specTrace2_minMin_homogeneous_scale${numHosts}_taksOvertime.csv",
-            "path_hostInfo" to "$basePath/specTrace2_minMin_homogeneous_scale${numHosts}_hostInfo.csv",
+            "path_metrics" to "$basePath/specTrace2_maxMin_homogeneous_scale${numHosts}_metrics.csv",
+            "path_makespan" to "$basePath/specTrace2_maxMin_homogeneous_scale${numHosts}_makespan.csv",
+            "path_tasksOverTime" to "$basePath/specTrace2_maxMin_homogeneous_scale${numHosts}_taksOvertime.csv",
+            "path_hostInfo" to "$basePath/specTrace2_maxMin_homogeneous_scale${numHosts}_hostInfo.csv",
             "host_function" to listOf(Pair(numHosts, { id : Int -> createHomogenousHostSpec(id)})),
             "metric_readoutMinutes" to readOutInterval.toLong(),
             "tracePath" to "/spec_trace-2_parquet",
@@ -101,10 +101,10 @@ internal class WorkflowServiceTest {
     @DisplayName("Heterogeneous environment")
     fun testHetro(numHosts: Int) {
         val config = hashMapOf<String, Any>(
-            "path_metrics" to "$basePath/specTrace2_minMin_heterogeneous_scale${numHosts}_metrics.csv",
-            "path_makespan" to "$basePath/specTrace2_minMin_heterogeneous_scale${numHosts}_makespan.csv",
-            "path_tasksOverTime" to "$basePath/specTrace2_minMin_heterogeneous_scale${numHosts}_taksOvertime.csv",
-            "path_hostInfo" to "$basePath/specTrace2_minMin_heterogeneous_scale${numHosts}_hostInfo.csv",
+            "path_metrics" to "$basePath/specTrace2_maxMin_heterogeneous_scale${numHosts}_metrics.csv",
+            "path_makespan" to "$basePath/specTrace2_maxMin_heterogeneous_scale${numHosts}_makespan.csv",
+            "path_tasksOverTime" to "$basePath/specTrace2_maxMin_heterogeneous_scale${numHosts}_taksOvertime.csv",
+            "path_hostInfo" to "$basePath/specTrace2_maxMin_heterogeneous_scale${numHosts}_hostInfo.csv",
             "host_function" to listOf(
                 Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec(id)}),
                 Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec2(id)}),
