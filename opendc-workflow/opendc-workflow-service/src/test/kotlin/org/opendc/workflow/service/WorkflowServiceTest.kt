@@ -88,6 +88,7 @@ internal class WorkflowServiceTest {
             "path_makespan" to "$basePath/specTrace2_random_homogeneous_scale${numHosts}_makespan.csv",
             "path_tasksOverTime" to "$basePath/specTrace2_random_homogeneous_scale${numHosts}_taksOvertime.csv",
             "path_hostInfo" to "$basePath/specTrace2_random_homogeneous_scale${numHosts}_hostInfo.csv",
+            "path_variableStore" to "$basePath/specTrace2_random_homogeneous_scale${numHosts}_variableStore.csv",
             "host_function" to listOf(Pair(numHosts, { id : Int -> createHomogenousHostSpec(id)})),
             "metric_readoutMinutes" to readOutInterval.toLong(),
             "tracePath" to "/spec_trace-2_parquet",
@@ -106,6 +107,7 @@ internal class WorkflowServiceTest {
             "path_makespan" to "$basePath/specTrace2_random_heterogeneous_scale${numHosts}_makespan.csv",
             "path_tasksOverTime" to "$basePath/specTrace2_random_heterogeneous_scale${numHosts}_taksOvertime.csv",
             "path_hostInfo" to "$basePath/specTrace2_random_heterogeneous_scale${numHosts}_hostInfo.csv",
+            "path_variableStore" to "$basePath/specTrace2_random_heterogeneous_scale${numHosts}_variableStore.csv",
             "host_function" to listOf(
                 Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec(id)}),
                 Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec2(id)}),
@@ -140,10 +142,13 @@ internal class WorkflowServiceTest {
         val metricsFile = PrintWriter(config["path_metrics"] as String)
         val makespanFile =  PrintWriter(config["path_makespan"] as String)
         val tasksOverTimeFile = PrintWriter(config["path_tasksOverTime"] as String)
+        val variableStoreFile = PrintWriter(config["path_variableStore"] as String)
 
         metricsFile.appendLine("Timestamp(s),HostId,No# Tasks running,cpuUsage(CPU usage of all CPUs of the host in MHz),energyUsage(Power usage of the host in W)")
         makespanFile.appendLine("Makespan (s),Workflow Response time (s)")
         tasksOverTimeFile.appendLine("Time (s),Tasks #")
+        variableStoreFile.appendLine("variable,value,unit")
+        variableStoreFile.appendLine("readOutInterval,${readOutInterval},m")
 
         val hostFns = config["host_function"] as List<Pair<Int, (Int) -> HostSpec>>
         var offSet = 0
@@ -222,6 +227,10 @@ internal class WorkflowServiceTest {
                 for ((key, value) in completedTasksOverTime.groupingBy { it }.eachCount().filter { it.value >= 1 }.entries){
                     tasksOverTimeFile.appendLine("$key,$value")
                 }
+
+                // how long did we run in total?
+                val milliSecToSec = 1000
+                variableStoreFile.appendLine("totalRuntime,${clock.millis() / milliSecToSec},s")
             }
         } finally {
             workflowHelper.close()
@@ -230,6 +239,7 @@ internal class WorkflowServiceTest {
             metricsFile.close()
             makespanFile.close()
             tasksOverTimeFile.close()
+            variableStoreFile.close()
         }
         val path = System.getProperty("user.dir")
 
