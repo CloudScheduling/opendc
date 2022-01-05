@@ -1,5 +1,6 @@
 package org.opendc.workflow.service
 
+import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 import org.opendc.compute.workload.topology.HostSpec
 import org.opendc.simulator.compute.kernel.SimSpaceSharedHypervisorProvider
@@ -15,41 +16,46 @@ import org.opendc.workflow.api.Task
 import org.opendc.workflow.service.internal.JobState
 import org.opendc.workflow.service.internal.TaskState
 import org.opendc.workflow.service.scheduler.task.AntColonyPolicy
+import org.opendc.workflow.service.scheduler.task.Constants
 import java.util.*
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.CoroutineContext
 
 class AntColonyPolicyTests {
     @Test
-    fun tourOnlyGetsBetter() = runBlockingSimulation {
+    fun example() = runBlockingSimulation {
         val hostSpecs = listOf(createDefaultHostSpec(1))
 
         val tasks = setOf(
-            Task(UUID(0L, 1L), "Task1", emptySet(), mapOf("cpu-cycles" to 1000L)),
-            Task(UUID(0L, 2L), "Task2", emptySet(), mapOf("cpu-cycles" to 1000L)),
-            Task(UUID(0L, 3L), "Task3", emptySet(), mapOf("cpu-cycles" to 1000L)),
-            Task(UUID(0L, 4L), "Task4", emptySet(), mapOf("cpu-cycles" to 1000L)),
-            Task(UUID(0L, 5L), "Task5", emptySet(), mapOf("cpu-cycles" to 1000L)),
-            Task(UUID(0L, 6L), "Task6", emptySet(), mapOf("cpu-cycles" to 1500L)),
-            Task(UUID(0L, 7L), "Task7", emptySet(), mapOf("cpu-cycles" to 1500L)),
-            Task(UUID(0L, 8L), "Task8", emptySet(), mapOf("cpu-cycles" to 2000L)),
-            Task(UUID(0L, 9L), "Task9", emptySet(), mapOf("cpu-cycles" to 2000L)),
-            Task(UUID(0L, 10L), "Task10", emptySet(), mapOf("cpu-cycles" to 2000L)),
-            Task(UUID(0L, 11L), "Task11", emptySet(), mapOf("cpu-cycles" to 2000L)),
-            Task(UUID(0L, 12L), "Task12", emptySet(), mapOf("cpu-cycles" to 2000L)),
-            Task(UUID(0L, 13L), "Task13", emptySet(), mapOf("cpu-cycles" to 2000L)),
-            Task(UUID(0L, 14L), "Task14", emptySet(), mapOf("cpu-cycles" to 3000L)),
-            Task(UUID(0L, 15L), "Task15", emptySet(), mapOf("cpu-cycles" to 3000L)),
-            Task(UUID(0L, 16L), "Task16", emptySet(), mapOf("cpu-cycles" to 3000L)),
-            Task(UUID(0L, 17L), "Task17", emptySet(), mapOf("cpu-cycles" to 3000L)),
-            Task(UUID(0L, 18L), "Task18", emptySet(), mapOf("cpu-cycles" to 4000L)),
-            Task(UUID(0L, 19L), "Task19", emptySet(), mapOf("cpu-cycles" to 7000L)),
-            Task(UUID(0L, 20L), "Task20", emptySet(), mapOf("cpu-cycles" to 12000L)))
+            Task(UUID(0L, 1L), "Task1", emptySet(), mutableMapOf("cpu-cycles" to 1000L)),
+            Task(UUID(0L, 2L), "Task2", emptySet(), mutableMapOf("cpu-cycles" to 1000L)),
+            Task(UUID(0L, 3L), "Task3", emptySet(), mutableMapOf("cpu-cycles" to 1000L)),
+            Task(UUID(0L, 4L), "Task4", emptySet(), mutableMapOf("cpu-cycles" to 1000L)),
+            Task(UUID(0L, 5L), "Task5", emptySet(), mutableMapOf("cpu-cycles" to 1000L)),
+            Task(UUID(0L, 6L), "Task6", emptySet(), mutableMapOf("cpu-cycles" to 1500L)),
+            Task(UUID(0L, 7L), "Task7", emptySet(), mutableMapOf("cpu-cycles" to 1500L)),
+            Task(UUID(0L, 8L), "Task8", emptySet(), mutableMapOf("cpu-cycles" to 2000L)),
+            Task(UUID(0L, 9L), "Task9", emptySet(), mutableMapOf("cpu-cycles" to 2000L)),
+            Task(UUID(0L, 10L), "Task10", emptySet(), mutableMapOf("cpu-cycles" to 2000L)),
+            Task(UUID(0L, 11L), "Task11", emptySet(), mutableMapOf("cpu-cycles" to 2000L)),
+            Task(UUID(0L, 12L), "Task12", emptySet(), mutableMapOf("cpu-cycles" to 2000L)),
+            Task(UUID(0L, 13L), "Task13", emptySet(), mutableMapOf("cpu-cycles" to 2000L)),
+            Task(UUID(0L, 14L), "Task14", emptySet(), mutableMapOf("cpu-cycles" to 3000L)),
+            Task(UUID(0L, 15L), "Task15", emptySet(), mutableMapOf("cpu-cycles" to 3000L)),
+            Task(UUID(0L, 16L), "Task16", emptySet(), mutableMapOf("cpu-cycles" to 3000L)),
+            Task(UUID(0L, 17L), "Task17", emptySet(), mutableMapOf("cpu-cycles" to 3000L)),
+            Task(UUID(0L, 18L), "Task18", emptySet(), mutableMapOf("cpu-cycles" to 4000L)),
+            Task(UUID(0L, 19L), "Task19", emptySet(), mutableMapOf("cpu-cycles" to 7000L)),
+            Task(UUID(0L, 20L), "Task20", emptySet(), mutableMapOf("cpu-cycles" to 12000L)))
         val taskStates = createInputForPolicy(tasks, coroutineContext)
 
-        val policy = AntColonyPolicy(hostSpecs)
+        val constants = Constants(numIterations = 500, numAnts = 200, alpha = 0.9, beta = 0.1, gamma = 1.0,
+            initialPheromone = 10.0, rho = 0.3, Q = 10.0)
+        val policy = AntColonyPolicy(hostSpecs, constants)
         val orderedTasks = policy.orderTasks(taskStates)
-        println(orderedTasks)
+
+        for (task in orderedTasks)
+            Assertions.assertTrue(task.task.metadata.containsKey("assigned-host"))
     }
 
     private fun createDefaultHostSpec(uid: Int): HostSpec {

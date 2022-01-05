@@ -7,7 +7,7 @@ import java.util.*
 import kotlin.math.pow
 import kotlin.random.Random
 
-internal class Core(val id: Int, val frequency: Double, tasks: List<TaskState>) {
+internal class Core(val id: Int, val host: HostSpec, val frequency: Double, tasks: List<TaskState>) {
     private val execTimes: MutableMap<TaskState, Double> = mutableMapOf()
     private val scheduledTasks: MutableList<TaskState> = mutableListOf()
     private var activeTime: Double = 0.0
@@ -65,33 +65,40 @@ internal class Ant(val id: Int) {
     }
 }
 
-internal data class Constants(val numIterations: Int,
+public data class Constants(val numIterations: Int,
                               val numAnts: Int,
                               val alpha: Double,
                               val beta: Double,
+                              val gamma: Double,
                               val initialPheromone: Double,
                               val rho: Double,
                               val Q: Double) {}
 
-public class AntColonyPolicy(public val hosts: List<HostSpec>) : HolisticTaskOrderPolicy {
-    private val _constants = Constants(numIterations = 300, numAnts = 30, alpha = 0.4, beta = 0.6,
-                                       initialPheromone = 5.0, rho = 0.4, Q = 30.0)
-    private val _cores = hosts.flatMap { it.model.cpus }
-
+public class AntColonyPolicy(private val hosts: List<HostSpec>, private val constants: Constants) : HolisticTaskOrderPolicy {
     public override fun orderTasks(tasks: List<TaskState>): Queue<TaskState> {
-        val cores = _cores.map { Core(it.id, it.frequency, tasks) }
-        acoProc(tasks, cores)
+        if (tasks.isEmpty())
+            return LinkedList()
 
-        return LinkedList()
+        val cores = hosts.flatMap { host -> host.model.cpus.map { Core(it.id, host, it.frequency, tasks) } }
+        val goodTour = acoProc(tasks, cores)
+
+        for ((task, core) in goodTour.getNodes()) {
+            task.task.metadata["assigned-host"] = Pair(core.host.uid, core.host.name)
+        }
+
+        println("Result makespan: ${goodTour.getMakespan()}")
+
+        // Tasks are ordered FCFS
+        return LinkedList(tasks)
     }
 
-    private fun acoProc(tasks: List<TaskState>, cores: List<Core>) {
+    private fun acoProc(tasks: List<TaskState>, cores: List<Core>): Tour {
         val bestTours: MutableSet<Tour> = mutableSetOf()
 
-        val ants = initializeAnts(_constants.numAnts)
-        val trails = initializeTrails(_constants.initialPheromone, tasks, cores)
+        val ants = initializeAnts(constants.numAnts)
+        val trails = initializeTrails(constants.initialPheromone, tasks, cores)
 
-        for (i in 0 until _constants.numIterations) {
+        for (i in 0 until constants.numIterations) {
             for (ant in ants) {
                 ant.reset()
                 for (core in cores)
@@ -114,10 +121,26 @@ public class AntColonyPolicy(public val hosts: List<HostSpec>) : HolisticTaskOrd
             updatePheromoneLocally(trails, ants)
             updatePheromoneGlobally(trails, bestTours)
 
+            println("Iteration $i: Makespan ${bestTours.first().getMakespan()}")
+
+            /*
             for (tour in bestTours) {
                 printTour(tour)
             }
+
+            val infoPerTask = mutableMapOf<TaskState, MutableList<String>>()
+            for ((node, level) in trails) {
+                infoPerTask.putIfAbsent(node.first, mutableListOf<String>())
+                val info = "Core ${node.second.id}: ${level}"
+                infoPerTask.getValue(node.first).add(info)
+            }
+            for ((task, infos) in infoPerTask.entries) {
+                println("Task ${task.task.uid.leastSignificantBits}: " + infos.joinToString())
+            }
+            */
         }
+
+        return bestTours.random()
     }
 
     private fun initializeAnts(numAnts: Int) : Set<Ant> {
@@ -160,17 +183,17 @@ public class AntColonyPolicy(public val hosts: List<HostSpec>) : HolisticTaskOrd
 
     private fun calculateAttractiveness(trailLevel: Double, completionTime: Double): Double {
         val desirability = 1.0 / completionTime
-        return trailLevel.pow(_constants.alpha) * desirability.pow(_constants.beta)
+        return trailLevel.pow(constants.alpha) * desirability.pow(constants.beta) + constants.gamma
     }
 
     private fun updatePheromoneLocally(trails: MutableMap<Pair<TaskState, Core>, Double>, ants: Set<Ant>) {
         for ((node, oldValue) in trails.entries) {
-            trails[node] = (1 - _constants.rho) * oldValue
+            trails[node] = (1 - constants.rho) * oldValue
         }
 
         for (ant in ants) {
             for (node in ant.tour.getNodes()) {
-                val pheromoneDelta = _constants.Q / ant.tour.getMakespan()
+                val pheromoneDelta = constants.Q / ant.tour.getMakespan()
                 val oldValue = trails.getValue(node)
                 trails[node] = oldValue + pheromoneDelta
             }
@@ -180,7 +203,7 @@ public class AntColonyPolicy(public val hosts: List<HostSpec>) : HolisticTaskOrd
     private fun updatePheromoneGlobally(trails: MutableMap<Pair<TaskState, Core>, Double>, bestTours: Set<Tour>) {
         for (tour in bestTours) {
             for (node in tour.getNodes()) {
-                val pheromoneDelta = _constants.Q / tour.getMakespan()
+                val pheromoneDelta = constants.Q / tour.getMakespan()
                 val oldValue = trails.getValue(node)
                 trails[node] = oldValue + pheromoneDelta
             }
