@@ -75,8 +75,8 @@ internal class AntColonyPolicyTraceTest {
         for (spec in hostSpecs)
             computeHelper.registerHost(spec)
 
-        val acoConstants = Constants(numIterations = 42, numAnts = 75, alpha = 0.4, beta = 0.6, gamma = 20.0,
-            initialPheromone = 10.0, rho = 0.1, Q = 20.0)
+        val acoConstants = Constants(numIterations = 20, numAnts = 100, alpha = 0.8, beta = 2.0, gamma = 10.0,
+            initialPheromone = 10.0, rho = 0.3)
         // Configure the WorkflowService that is responsible for scheduling the workflow tasks onto machines
         val workflowScheduler = WorkflowSchedulerSpec(
             schedulingQuantum = Duration.ofMillis(100),
@@ -135,7 +135,7 @@ internal class AntColonyPolicyTraceTest {
         )
          */
 
-        println("Execution time: ${clock.millis()}")
+        println("${metrics.tasksFinished} tasks executed in ${clock.millis()}ms")
     }
 
     /**

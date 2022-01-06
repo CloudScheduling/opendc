@@ -50,7 +50,7 @@ class AntColonyPolicyTests {
         val taskStates = createInputForPolicy(tasks, coroutineContext)
 
         val constants = Constants(numIterations = 500, numAnts = 200, alpha = 0.9, beta = 0.1, gamma = 1.0,
-            initialPheromone = 10.0, rho = 0.3, Q = 10.0)
+            initialPheromone = 10.0, rho = 0.3)
         val policy = AntColonyPolicy(hostSpecs, constants)
         val orderedTasks = policy.orderTasks(taskStates)
 

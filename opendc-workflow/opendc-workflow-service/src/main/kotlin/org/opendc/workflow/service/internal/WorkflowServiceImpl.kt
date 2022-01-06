@@ -277,6 +277,7 @@ public class WorkflowServiceImpl(
 
         timerScheduler.startSingleTimer(Unit, delay) {
             doSchedule()
+            println("Active tasks: ${activeTasks.size}")
         }
     }
 

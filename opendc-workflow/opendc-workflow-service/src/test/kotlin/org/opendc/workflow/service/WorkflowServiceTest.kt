@@ -77,7 +77,7 @@ internal class WorkflowServiceTest {
     }
 
     @ParameterizedTest(name = "{0} hosts")
-    @ValueSource(ints = [2, 4, 8, 16, 32, 64, 128])
+    @ValueSource(ints = [2, 4, 6, 8, 10, 12, 14])
     @DisplayName("Homogeneous environment")
     fun testHomo(numHosts : Int) {
         val config = hashMapOf(
@@ -94,7 +94,7 @@ internal class WorkflowServiceTest {
     }
 
     @ParameterizedTest(name = "{0} hosts")
-    @ValueSource(ints = [2, 4, 8, 16, 32, 64, 128])
+    @ValueSource(ints = [2, 4, 6, 8, 10, 12, 14])
     @DisplayName("Heterogeneous environment")
     fun testHetro(numHosts: Int) {
         val config = hashMapOf(
@@ -150,8 +150,8 @@ internal class WorkflowServiceTest {
             computeHelper.registerHost(elem)
         }
 
-        val acoConstants = Constants(numIterations = 100, numAnts = 80, alpha = 0.4, beta = 0.6, gamma = 15.0,
-            initialPheromone = 10.0, rho = 0.2, Q = 20.0)
+        val acoConstants = Constants(numIterations = 30, numAnts = 42, alpha = 1.0, beta = 3.0, gamma = 1.0,
+            initialPheromone = 5.0, rho = 0.1)
         // Configure the WorkflowService that is responsible for scheduling the workflow tasks onto machines
         val workflowScheduler = WorkflowSchedulerSpec(
             schedulingQuantum = Duration.ofMillis(100),
