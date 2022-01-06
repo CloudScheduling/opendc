@@ -69,52 +69,109 @@ import kotlin.collections.HashMap
 @DisplayName("WorkflowService")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 internal class WorkflowServiceTest {
-    val basePath = System.getProperty("user.home") + "/OpenDC Test Automation/Min-Min"
+    val policyName = "MinMin"
+    val basePath = System.getProperty("user.home") + "/OpenDC Test Automation/${policyName}"
     val readOutInterval = 20
 
     @BeforeAll
     fun setup() {
         // create the folder
-        val file = File(System.getProperty("user.home") + "/OpenDC Test Automation/Min-Min").mkdirs()
+        val file = File(System.getProperty("user.home") + "/OpenDC Test Automation/${policyName}").mkdirs()
     }
 
-    @ParameterizedTest(name = "{0} hosts")
+    /**
+     * We run with a fixed environment kind and workload.
+     * We vary the scale.
+     * We observe makespan (s), energy spend (kWh) and utilization (%).
+     */
+    @ParameterizedTest(name= "{0} hosts")
     @ValueSource(ints = [2, 4, 6, 8, 10, 12, 14])
-    @DisplayName("Homogeneous environment")
-    fun testHomo(numHosts : Int) {
+    @DisplayName("Experiment scale")
+    fun experimentScale(numHosts : Int) {
+        val traceName = "askalon_ee2_parquet" // TODO: change to right trace name
+        val traceNameConverted = traceName.replace("_", "-")
         val config = hashMapOf<String, Any>(
-            "path_metrics" to "$basePath/specTrace2_minMin_homogeneous_scale${numHosts}_metrics.csv",
-            "path_makespan" to "$basePath/specTrace2_minMin_homogeneous_scale${numHosts}_makespan.csv",
-            "path_tasksOverTime" to "$basePath/specTrace2_minMin_homogeneous_scale${numHosts}_taksOvertime.csv",
-            "path_hostInfo" to "$basePath/specTrace2_minMin_homogeneous_scale${numHosts}_hostInfo.csv",
-            "path_variableStore" to "$basePath/specTrace2_minMin_homogeneous_scale${numHosts}_variableStore.csv",
+            "path_metrics" to "$basePath/${traceNameConverted}_${policyName}_homogeneous_scale${numHosts}_metrics.csv",
+            "path_makespan" to "$basePath/${traceNameConverted}_${policyName}_homogeneous_scale${numHosts}_makespan.csv",
+            "path_tasksOverTime" to "$basePath/${traceNameConverted}_${policyName}_homogeneous_scale${numHosts}_taksOvertime.csv",
+            "path_hostInfo" to "$basePath/${traceNameConverted}_${policyName}_homogeneous_scale${numHosts}_hostInfo.csv",
+            "path_variableStore" to "$basePath/${traceNameConverted}_${policyName}_homogeneous_scale${numHosts}_variableStore.csv",
             "host_function" to listOf(Pair(numHosts, { id : Int -> createHomogenousHostSpec(id)})),
             "metric_readoutMinutes" to readOutInterval.toLong(),
-            "tracePath" to "/spec_trace-2_parquet",
+            "tracePath" to "/$traceName",
             "traceFormat" to "wtf",
-            "numberJobs" to 200.toLong(),
+            "numberJobs" to 1031.toLong(), // TODO: depends on trace
         )
         testTemplate(config)
     }
 
-    @ParameterizedTest(name = "{0} hosts")
-    @ValueSource(ints = [2, 4, 6, 8, 10, 12, 14])
-    @DisplayName("Heterogeneous environment")
-    fun testHetro(numHosts: Int) {
-        val config = hashMapOf<String, Any>(
-            "path_metrics" to "$basePath/specTrace2_minMin_heterogeneous_scale${numHosts}_metrics.csv",
-            "path_makespan" to "$basePath/specTrace2_minMin_heterogeneous_scale${numHosts}_makespan.csv",
-            "path_tasksOverTime" to "$basePath/specTrace2_minMin_heterogeneous_scale${numHosts}_taksOvertime.csv",
-            "path_hostInfo" to "$basePath/specTrace2_minMin_heterogeneous_scale${numHosts}_hostInfo.csv",
-            "path_variableStore" to "$basePath/specTrace2_minMin_heterogeneous_scale${numHosts}_variableStore.csv",
-            "host_function" to listOf(
-                Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec(id)}),
-                Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec2(id)}),
-            ),
+    fun commonExperimentEnvironment(numHosts: Int, envKind : String): HashMap<String, Any> {
+        val traceName = "shell_parquet" // TODO: change to right trace name
+        val traceNameConverted = traceName.replace("_", "-")
+        return hashMapOf<String, Any>(
+            "path_metrics" to "$basePath/${traceNameConverted}_${policyName}_${envKind}_scale${numHosts}_metrics.csv",
+            "path_makespan" to "$basePath/${traceNameConverted}_${policyName}_${envKind}_scale${numHosts}_makespan.csv",
+            "path_tasksOverTime" to "$basePath/${traceNameConverted}_${policyName}_${envKind}_scale${numHosts}_taksOvertime.csv",
+            "path_hostInfo" to "$basePath/${traceNameConverted}_${policyName}_${envKind}_scale${numHosts}_hostInfo.csv",
+            "path_variableStore" to "$basePath/${traceNameConverted}_${policyName}_${envKind}_scale${numHosts}_variableStore.csv",
             "metric_readoutMinutes" to readOutInterval.toLong(),
-            "tracePath" to "/spec_trace-2_parquet",
+            "tracePath" to "/$traceName",
             "traceFormat" to "wtf",
-            "numberJobs" to 200.toLong(),
+            "numberJobs" to 3403.toLong(), // TODO: depends on trace
+        )
+    }
+
+    /**
+     * We run with a fixed scale and workload.
+     * We vary the environment kind.
+     * We observe makespan (s), energy spend (kWh) and utilization (%).
+     */
+    @Test
+    @DisplayName("Experiment Environment Homogeneous")
+    fun experimentEnvironmentHomo() {
+        val numHosts = 2 // TODO: change to right amount
+        val config = commonExperimentEnvironment(numHosts, "homogeneous")
+        config["host_function"] = listOf(Pair(numHosts, { id : Int -> createHomogenousHostSpec(id)}))
+        testTemplate(config)
+    }
+
+    /**
+     * We run with a fixed scale and workload.
+     * We vary the environment kind.
+     * We observe makespan (s), energy spend (kWh) and utilization (%).
+     */
+    @Test
+    @DisplayName("Experiment Environment Heterogeneous")
+    fun experimentEnvironmentHetero() {
+        val numHosts = 2 // TODO: change to right amount
+        val config = commonExperimentEnvironment(numHosts, "heterogeneous")
+        config["host_function"] = listOf(Pair(numHosts, { id : Int -> createHomogenousHostSpec2(id)}))
+        testTemplate(config)
+    }
+
+    /**
+     * We run with a fixed scale and environment kind.
+     * We vary the workload.
+     * We observe makespan (s), energy spend (kWh) and utilization (%).
+     */
+    @ParameterizedTest(name = "Workload {0}")
+    @ValueSource(strings = ["shell_parquet", "Galaxy", "askalon-new_ee49_parquet", "askalon_ee2_parquet"])
+    @DisplayName("Experiment Workload")
+    fun experimentWorkload(traceName : String) {
+        val numHosts = 2 // TODO: change to right amount
+        val envKind = "homogeneous" // TODO: change if it shall be heterogeneous
+        val traceNameConverted = traceName.replace("_", "-")
+        val config = hashMapOf<String, Any>(
+            "path_metrics" to "$basePath/${traceNameConverted}_${policyName}_${envKind}_scale${numHosts}_metrics.csv",
+            "path_makespan" to "$basePath/${traceNameConverted}_${policyName}_${envKind}_scale${numHosts}_makespan.csv",
+            "path_tasksOverTime" to "$basePath/${traceNameConverted}_${policyName}_${envKind}_scale${numHosts}_taksOvertime.csv",
+            "path_hostInfo" to "$basePath/${traceNameConverted}_${policyName}_${envKind}_scale${numHosts}_hostInfo.csv",
+            "path_variableStore" to "$basePath/${traceNameConverted}_${policyName}_${envKind}_scale${numHosts}_variableStore.csv",
+            "host_function" to listOf(Pair(numHosts, { id : Int -> createHomogenousHostSpec(id)})), // TODO: change, if env changed
+            "metric_readoutMinutes" to readOutInterval.toLong(),
+            "tracePath" to "/$traceName",
+            "traceFormat" to "wtf",
+            "numberJobs" to 200.toLong(), // TODO: depends on trace
         )
         testTemplate(config)
     }
