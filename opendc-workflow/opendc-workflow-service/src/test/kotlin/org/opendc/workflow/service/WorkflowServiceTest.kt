@@ -257,7 +257,14 @@ internal class WorkflowServiceTest {
 
             coroutineScope {
 
-                val jobs = trace.toJobs()
+                var jobs : List<Job>
+                if (config["tracePath"] == "/askalon_ee2_parquet") { // we cut askalon ee2 because it is too long
+                    jobs = trace.toJobs().sortedBy { it.metadata.getOrDefault("WORKFLOW_SUBMIT_TIME", Long.MAX_VALUE) as Long }
+                    jobs = jobs.subList(0, 906)
+                }
+                else {
+                    jobs = trace.toJobs()
+                }
                 workflowHelper.replay(jobs) // Wait for all jobs to be executed completely
                 val makespans = jobs.map { (it.tasks.maxOf { t -> t.metadata["finishedAt"] as Long } - it.tasks.minOf {t -> t.metadata["startedAt"] as Long }) / 1000}
 
