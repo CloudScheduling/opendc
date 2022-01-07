@@ -69,7 +69,7 @@ import java.util.*
 internal class WorkflowServiceTest {
     val policyName = "MaxMin"
     val basePath = System.getProperty("user.home") + "/OpenDC Test Automation/${policyName}"
-    val readOutInterval = 20
+    val readOutInterval = 10
 
     @BeforeAll
     fun setup() {
@@ -189,15 +189,12 @@ internal class WorkflowServiceTest {
         // Configure the ComputeService that is responsible for mapping virtual machines onto physical hosts
         val computeScheduler = AssignmentExecutionScheduler()
         val computeHelper = ComputeServiceHelper(coroutineContext, clock, computeScheduler, schedulingQuantum = Duration.ofSeconds(1))
-        var readoutTime = Duration.ofMinutes(config["metric_readoutMinutes"] as Long)
+        var readoutTime = Duration.ofSeconds(config["metric_readoutMinutes"] as Long)
 
-        if (config["tracePath"] == "/shell_parquet"){
+        if (config["tracePath"] == "/Galaxy"){
             readoutTime = Duration.ofSeconds(config["metric_readoutMinutes"] as Long)
         }
 
-        if (config["tracePath"] == "/askalon-new_ee49_parquet"){
-            readoutTime = Duration.ofSeconds(config["metric_readoutMinutes"] as Long)
-        }
 
         val metricsFile = BufferedWriter(FileWriter(config["path_metrics"] as String), 32768)
         val makespanFile = BufferedWriter(FileWriter(config["path_makespan"] as String), 32768)
