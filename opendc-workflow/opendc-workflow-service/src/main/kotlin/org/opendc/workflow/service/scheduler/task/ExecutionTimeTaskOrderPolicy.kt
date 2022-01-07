@@ -12,7 +12,7 @@ import kotlin.collections.set
 /**
  * A [TaskOrderPolicy] orders tasks based on the pre-specified (approximate) duration of the task.
  */
-public data class ExecutionTimeTaskOderPolicy(public val ascending: Boolean = true) : TaskOrderPolicy {
+public data class ExecutionTimeTaskOderPolicy(public val ascending: Boolean = false) : TaskOrderPolicy {
 
     override fun invoke(scheduler: WorkflowServiceImpl): Comparator<TaskState> =
         object : Comparator<TaskState>, WorkflowSchedulerListener {

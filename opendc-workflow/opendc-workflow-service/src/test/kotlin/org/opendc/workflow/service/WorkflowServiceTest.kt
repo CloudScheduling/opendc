@@ -72,7 +72,7 @@ import kotlin.collections.HashMap
 @DisplayName("WorkflowService")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 internal class WorkflowServiceTest {
-    val policyName = "Random"
+    val policyName = "MaxMin_v1"
     val basePath = System.getProperty("user.home") + "/OpenDC Test Automation/${policyName}"
     val readOutInterval = 10 // seconds now (unlike the key suggests)
 
@@ -233,7 +233,7 @@ internal class WorkflowServiceTest {
             jobAdmissionPolicy = NullJobAdmissionPolicy,
             jobOrderPolicy = RandomJobOrderPolicy,
             taskEligibilityPolicy = NullTaskEligibilityPolicy,
-            taskOrderPolicy = RandomTaskOrderPolicy,
+            taskOrderPolicy = ExecutionTimeTaskOderPolicy(),
         )
         val workflowHelper = WorkflowServiceHelper(coroutineContext, clock, computeHelper.service.newClient(), workflowScheduler)
         val metricReader = CoroutineMetricReader(this, computeHelper.producers, object : ComputeMetricExporter(){
@@ -249,7 +249,7 @@ internal class WorkflowServiceTest {
                 metricsFile.appendLine("${timeStamp},${host},${reader.guestsRunning},$cpuUsage,${energyUsage.toInt()}")
 
             }
-        }, exportInterval = Duration.ofSeconds(config["metric_readoutMinutes"] as Long))
+        }, exportInterval = Duration.ofMinutes(config["metric_readoutMinutes"] as Long))
 
         try {
             val trace = Trace.open(
