@@ -74,7 +74,7 @@ import kotlin.collections.HashMap
 internal class WorkflowServiceTest {
     val policyName = "Random"
     val basePath = System.getProperty("user.home") + "/OpenDC Test Automation/${policyName}"
-    val readOutInterval = 20
+    val readOutInterval = 10 // seconds now (unlike the key suggests)
 
     @BeforeAll
     fun setup() {
@@ -249,7 +249,7 @@ internal class WorkflowServiceTest {
                 metricsFile.appendLine("${timeStamp},${host},${reader.guestsRunning},$cpuUsage,${energyUsage.toInt()}")
 
             }
-        }, exportInterval = Duration.ofMinutes(config["metric_readoutMinutes"] as Long))
+        }, exportInterval = Duration.ofSeconds(config["metric_readoutMinutes"] as Long))
 
         try {
             val trace = Trace.open(
