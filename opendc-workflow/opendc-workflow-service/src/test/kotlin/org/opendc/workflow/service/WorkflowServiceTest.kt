@@ -56,7 +56,9 @@ import org.opendc.workflow.service.scheduler.task.TaskReadyEligibilityPolicy
 import org.opendc.workflow.workload.WorkflowSchedulerSpec
 import org.opendc.workflow.workload.WorkflowServiceHelper
 import org.opendc.workflow.workload.toJobs
+import java.io.BufferedWriter
 import java.io.File
+import java.io.FileWriter
 import java.nio.file.Paths
 import java.time.Duration
 import java.util.*
@@ -192,11 +194,21 @@ internal class WorkflowServiceTest {
         // Configure the ComputeService that is responsible for mapping virtual machines onto physical hosts
         val computeScheduler = AssignmentExecutionScheduler()
         val computeHelper = ComputeServiceHelper(coroutineContext, clock, computeScheduler, schedulingQuantum = Duration.ofSeconds(1))
+        var readoutTime =  Duration.ofSeconds(config["metric_readoutMinutes"] as Long)
 
-        val metricsFile = PrintWriter(config["path_metrics"] as String)
-        val makespanFile =  PrintWriter(config["path_makespan"] as String)
-        val tasksOverTimeFile = PrintWriter(config["path_tasksOverTime"] as String)
-        val variableStoreFile = PrintWriter(config["path_variableStore"] as String)
+
+        if (config["tracePath"] == "/Galaxy") { // we cut askalon ee2 because it is too long
+            readoutTime =  Duration.ofMinutes(config["metric_readoutMinutes"] as Long)
+        }
+        val metricsFile = BufferedWriter(FileWriter(config["path_metrics"] as String), 32768)
+        val makespanFile = BufferedWriter(FileWriter(config["path_makespan"] as String), 32768)
+        val tasksOverTimeFile = BufferedWriter(FileWriter(config["path_tasksOverTime"] as String), 32768)
+        val variableStoreFile = BufferedWriter(FileWriter(config["path_variableStore"] as String), 32768)
+
+//        val metricsFile = PrintWriter(config["path_metrics"] as String)
+//        val makespanFile =  PrintWriter(config["path_makespan"] as String)
+//        val tasksOverTimeFile = PrintWriter(config["path_tasksOverTime"] as String)
+//        val variableStoreFile = PrintWriter(config["path_variableStore"] as String)
 
         metricsFile.appendLine("Timestamp(s),HostId,No# Tasks running,cpuUsage(CPU usage of all CPUs of the host in MHz),energyUsage(Power usage of the host in W)")
         makespanFile.appendLine("Makespan (s),Workflow Response time (s)")
@@ -218,7 +230,8 @@ internal class WorkflowServiceTest {
         }
 
         // write generic infos about the host to special file
-        val hostInfoFile = PrintWriter(config["path_hostInfo"] as String)
+//        val hostInfoFile = PrintWriter(config["path_hostInfo"] as String)
+        val hostInfoFile = BufferedWriter(FileWriter(config["path_hostInfo"] as String), 32768)
         hostInfoFile.appendLine("HostNo,maxCapacity(MHz)")
         for (host in computeHelper.hosts) {
             var maxCapacity = host.machine.cpus.sumOf { it.capacity }
@@ -248,7 +261,7 @@ internal class WorkflowServiceTest {
                 metricsFile.appendLine("${timeStamp},${host},${reader.guestsRunning},$cpuUsage,${energyUsage.toInt()}")
 
             }
-        }, exportInterval = Duration.ofMinutes(config["metric_readoutMinutes"] as Long))
+        }, exportInterval = readoutTime)
 
         try {
             val trace = Trace.open(
