@@ -74,7 +74,7 @@ import kotlin.collections.HashMap
 internal class WorkflowServiceTest {
     val policyName = "MinMin"
     val basePath = System.getProperty("user.home") + "/OpenDC Test Automation/${policyName}"
-    val readOutInterval = 20
+    val readOutInterval = 10
 
     @BeforeAll
     fun setup() {
