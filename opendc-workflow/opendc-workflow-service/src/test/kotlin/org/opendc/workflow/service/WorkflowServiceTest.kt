@@ -249,7 +249,7 @@ internal class WorkflowServiceTest {
         var readoutTime = Duration.ofSeconds(config["metric_readoutMinutes"] as Long)
 
         if (config["tracePath"] == "/Galaxy"){
-            readoutTime = Duration.ofSeconds(config["metric_readoutMinutes"] as Long)
+            readoutTime = Duration.ofMinutes(config["metric_readoutMinutes"] as Long)
         }
 
 
