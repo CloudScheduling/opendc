@@ -94,21 +94,21 @@ internal class WorkflowServiceTest {
     }
 
     @ParameterizedTest(name = "{0} hosts")
-    @ValueSource(ints = [2, 4, 6, 8, 10, 12, 14])
+    @ValueSource(ints = [/*2, 4, 6, 8, 10,*/ 12, 14])
     @DisplayName("Heterogeneous environment")
     fun testHetro(numHosts: Int) {
         val config = hashMapOf(
-            "path_metrics" to "$basePath/specTrace2_aco_hetro_scale${numHosts}_metrics.csv",
-            "path_makespan" to "$basePath/specTrace2_aco_hetro_scale${numHosts}_makespan.csv",
-            "path_tasksOverTime" to "$basePath/specTrace2_aco_hetro_scale${numHosts}_taksOvertime.csv",
+            "path_metrics" to "$basePath/askalon_ee49_aco_hetro_scale${numHosts}_metrics.csv",
+            "path_makespan" to "$basePath/askalon_ee49_aco_hetro_scale${numHosts}_makespan.csv",
+            "path_tasksOverTime" to "$basePath/askalon_ee49_aco_hetro_scale${numHosts}_taksOvertime.csv",
             "host_function" to listOf(
                 Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec(id)}),
                 Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec2(id)}),
             ),
             "metric_readoutMinutes" to readOutInterval.toLong(),
-            "tracePath" to "/spec_trace-2_parquet",
+            "tracePath" to "/askalon-new_ee49_parquet",
             "traceFormat" to "wtf",
-            "numberJobs" to 200.toLong(),
+            "numberJobs" to 50.toLong(),
         )
         testTemplate(config)
     }
@@ -150,7 +150,7 @@ internal class WorkflowServiceTest {
             computeHelper.registerHost(elem)
         }
 
-        val acoConstants = Constants(numIterations = 30, numAnts = 42, alpha = 1.0, beta = 3.0, gamma = 1.0,
+        val acoConstants = Constants(numIterations = 10, numAnts = 42, alpha = 1.0, beta = 3.0, gamma = 1.0,
             initialPheromone = 5.0, rho = 0.1)
         // Configure the WorkflowService that is responsible for scheduling the workflow tasks onto machines
         val workflowScheduler = WorkflowSchedulerSpec(

@@ -10,24 +10,17 @@ import kotlin.random.Random
 
 internal class Core(val id: Int, val host: HostSpec, val frequency: Double) {
     private val execTimes: MutableMap<TaskState, Double> = mutableMapOf()
-    private val scheduledTasks: MutableList<TaskState> = mutableListOf()
-    private var activeTime: Double = 0.0
-    private var committedTime: Double = 0.0
+    private var _committedTime: Double = 0.0
+    val committedTime: Double
+        get() { return _committedTime }
 
-    fun getCompletionTimeForTask(task: TaskState): Double {
-        return this.committedTime + this.activeTime + this.execTimes.getValue(task)
-    }
-
-    fun scheduleTask(task: TaskState) {
-        this.scheduledTasks.add(task)
-        this.activeTime += this.execTimes.getValue(task)
+    fun getExecTime(task: TaskState): Double {
+        return this.execTimes.getValue(task)
     }
 
     fun commitTask(task: TaskState) {
-        this.committedTime += this.execTimes.getValue(task)
+        _committedTime += this.execTimes.getValue(task)
     }
-
-    fun getActiveTime() = this.activeTime
 
     /**
      * Clear previous information and precompute execution times for tasks
@@ -41,37 +34,41 @@ internal class Core(val id: Int, val host: HostSpec, val frequency: Double) {
             this.execTimes[task] = maxOf(execTime, 0.1)
         }
     }
-
-    fun reset() {
-        this.scheduledTasks.clear()
-        this.activeTime = 0.0
-    }
 }
 
 internal class Tour() {
     private val nodes: MutableList<Pair<TaskState, Core>> = mutableListOf()
     private var makespan: Double = 0.0
 
-    fun addNode(task: TaskState, core: Core) {
+    fun addNode(task: TaskState, core: Core, coreActiveTime: Double) {
         this.nodes.add(Pair(task, core))
-        this.makespan = maxOf(this.makespan, core.getActiveTime())
+        this.makespan = maxOf(this.makespan, coreActiveTime)
     }
 
     fun getMakespan() = this.makespan
-    fun getNodes() = this.nodes.toList()
+    fun getNodes(): List<Pair<TaskState, Core>> = this.nodes
 }
 
-internal class Ant(val id: Int) {
+internal class Ant {
+    private var _coresActiveTime = mutableMapOf<Core, Double>()
+    val coresActiveTime: Map<Core, Double>
+        get() { return _coresActiveTime }
+
     private var _tour = Tour()
     val tour: Tour
         get() { return _tour }
 
     fun addNode(task: TaskState, core: Core) {
-        core.scheduleTask(task)
-        this.tour.addNode(task, core)
+        val startTime = _coresActiveTime.getOrDefault(core, 0.0)
+        val execTime = core.getExecTime(task)
+        val coreActiveTime = startTime + execTime
+        _coresActiveTime[core] = coreActiveTime
+
+        this.tour.addNode(task, core, coreActiveTime)
     }
 
     fun reset() {
+        _coresActiveTime.clear()
         _tour = Tour()
     }
 }
@@ -85,22 +82,25 @@ public data class Constants(val numIterations: Int,
                             val rho: Double) {}
 
 public class AntColonyPolicy(private val hosts: List<HostSpec>, private val constants: Constants) : HolisticTaskOrderPolicy {
+    private val _emptyQueue = LinkedList<TaskState>()
     private val _cores = hosts.flatMap { host -> host.model.cpus.map { Core(it.id, host, it.frequency) } }
 
     public override fun orderTasks(tasks: List<TaskState>): Queue<TaskState> {
         if (tasks.isEmpty())
-            return LinkedList()
+            return _emptyQueue
 
-        _cores.forEach { it.precomputeExecTimes(tasks) }
+        val chunkSize = 1000
+        for (chunk in tasks.chunked(chunkSize)) {
+            val goodTour = acoProc(chunk, _cores)
 
-        val goodTour = acoProc(tasks, _cores)
+            for ((task, core) in goodTour.getNodes()) {
+                val assignedHost = core.host
+                task.task.metadata["assigned-host"] = Pair(assignedHost.uid, assignedHost.name)
+                core.commitTask(task)
+            }
 
-        for ((task, core) in goodTour.getNodes()) {
-            task.task.metadata["assigned-host"] = Pair(core.host.uid, core.host.name)
-            core.commitTask(task)
+            println("Result makespan: ${goodTour.getMakespan()}")
         }
-
-        println("Result makespan: ${goodTour.getMakespan()}")
 
         // Tasks are ordered FCFS
         return LinkedList(tasks)
@@ -111,18 +111,12 @@ public class AntColonyPolicy(private val hosts: List<HostSpec>, private val cons
 
         val ants = initializeAnts(constants.numAnts)
         val trails = initializeTrails(constants.initialPheromone, tasks, cores)
+        cores.forEach { it.precomputeExecTimes(tasks) }
 
         for (i in 0 until constants.numIterations) {
+            ants.parallelStream().forEach { antWalk(it, tasks, cores, trails) }
+
             for (ant in ants) {
-                ant.reset()
-                for (core in cores)
-                    core.reset()
-
-                for (task in tasks) {
-                    val selectedCore = selectCore(task, cores, trails)
-                    ant.addNode(task, selectedCore)
-                }
-
                 val minMakespan = bestTours.firstOrNull()?.getMakespan() ?: Double.MAX_VALUE
                 val currentMakespan = ant.tour.getMakespan()
                 if (currentMakespan < minMakespan) {
@@ -148,14 +142,14 @@ public class AntColonyPolicy(private val hosts: List<HostSpec>, private val cons
             }
             */
 
-            // println("Iteration $i: Makespan ${bestTours.first().getMakespan()}")
+            println("Iteration $i: Makespan ${bestTours.first().getMakespan()}")
         }
 
         return bestTours.random()
     }
 
     private fun initializeAnts(numAnts: Int) : Set<Ant> {
-        return (0 until numAnts).map { Ant(it) }.toSet()
+        return (0 until numAnts).map { Ant() }.toSet()
     }
 
     private fun initializeTrails(initialValue: Double, tasks: List<TaskState>, cores: List<Core>): MutableMap<Pair<TaskState, Core>, Double> {
@@ -168,13 +162,22 @@ public class AntColonyPolicy(private val hosts: List<HostSpec>, private val cons
         return trails
     }
 
-    private fun selectCore(task: TaskState, cores: List<Core>, trails: Map<Pair<TaskState, Core>, Double>): Core {
+    private fun antWalk(ant: Ant, tasks: List<TaskState>, cores: List<Core>, trails: Map<Pair<TaskState, Core>, Double>) {
+        ant.reset()
+
+        for (task in tasks) {
+            val selectedCore = selectCore(ant, task, cores, trails)
+            ant.addNode(task, selectedCore)
+        }
+    }
+
+    private fun selectCore(ant: Ant, task: TaskState, cores: List<Core>, trails: Map<Pair<TaskState, Core>, Double>): Core {
         val attractivenesses = mutableListOf<Double>()
         var attractivenessSum = 0.0
         for (i in cores.indices) {
             val core = cores[i]
             val trailLevel = trails.getValue(Pair(task, core))
-            val completionTime = core.getCompletionTimeForTask(task)
+            val completionTime = core.committedTime + ant.coresActiveTime.getOrDefault(core, 0.0) + core.getExecTime(task)
 
             val attractiveness = calculateAttractiveness(trailLevel, completionTime)
             attractivenesses.add(i, attractiveness)
