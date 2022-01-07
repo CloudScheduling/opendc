@@ -25,7 +25,7 @@ public class MinMinPolicy(public val hosts : Set<HostSpec>) : HolisticTaskOrderP
 
         while (unmappedTasks.isNotEmpty()) {
             var exec: ExecutionSpec? = null
-            var max = Double.MIN_VALUE
+            var max = -1.0 // can never be < 0 (startTime + execTime)
 
             for (task in unmappedTasks) {
                 val result = getMinExecutionSpec(task, startTimes)
