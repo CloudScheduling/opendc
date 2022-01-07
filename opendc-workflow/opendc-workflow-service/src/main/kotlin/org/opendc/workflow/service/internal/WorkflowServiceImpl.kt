@@ -389,6 +389,7 @@ public class WorkflowServiceImpl(
                 task.state = TaskStatus.FINISHED
                 task.finishedAt = clock.millis()
                 (task.task.metadata as MutableMap<String, Any>)["finishedAt"] = task.finishedAt
+                println("Finished task ${task.task.uid}")
                 job.tasks.remove(task)
                 activeTasks -= task
 
