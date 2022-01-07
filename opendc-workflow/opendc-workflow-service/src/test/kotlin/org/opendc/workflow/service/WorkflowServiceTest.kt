@@ -202,6 +202,9 @@ internal class WorkflowServiceTest {
         var readoutTime = Duration.ofSeconds(config["metric_readoutMinutes"] as Long)
 
 
+        if (config["tracePath"] == "/Galaxy") { // we cut askalon ee2 because it is too long
+            readoutTime =  Duration.ofMinutes(config["metric_readoutMinutes"] as Long)
+        }
 
         val metricsFile = BufferedWriter(FileWriter(config["path_metrics"] as String), 32768)
         val makespanFile = BufferedWriter(FileWriter(config["path_makespan"] as String), 32768)
