@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import org.opendc.compute.service.scheduler.FilterScheduler
+import org.opendc.compute.service.scheduler.RandomScheduler
 import org.opendc.compute.service.scheduler.filters.ComputeFilter
 import org.opendc.compute.service.scheduler.filters.RamFilter
 import org.opendc.compute.service.scheduler.filters.VCpuFilter
@@ -160,7 +161,8 @@ internal class WorkflowServiceTest {
      * We observe makespan (s), energy spend (kWh) and utilization (%).
      */
     @ParameterizedTest(name = "Workload {0}")
-    @ValueSource(strings = ["shell_parquet", "Galaxy", "askalon-new_ee49_parquet", "askalon_ee2_parquet"])
+    @ValueSource(strings = ["shell_parquet", "askalon_ee_parquet", "spec_trace-1_parquet", "askalon_ee2_parquet"])
+    // @ValueSource(strings = ["askalon_ee_parquet", "spec_trace-1_parquet"])
     @DisplayName("Experiment Workload")
     fun experimentWorkload(traceName : String) {
         val numHosts = 2 // TODO: change to right amount
@@ -194,11 +196,9 @@ internal class WorkflowServiceTest {
      */
     fun testTemplate(config : HashMap<String, Any>) = runBlockingSimulation {
         // Configure the ComputeService that is responsible for mapping virtual machines onto physical hosts
-        val computeScheduler = FilterScheduler(
-            filters = listOf(ComputeFilter(), VCpuFilter(1.0), RamFilter(1.0)),
-            weighers = listOf(VCpuWeigher(1.0, multiplier = 1.0))
-        )
-        val computeHelper = ComputeServiceHelper(coroutineContext, clock, computeScheduler, schedulingQuantum = Duration.ofSeconds(1))
+
+        val randomScheduler = RandomScheduler()
+        val computeHelper = ComputeServiceHelper(coroutineContext, clock, randomScheduler, schedulingQuantum = Duration.ofSeconds(1))
         var readoutTime = Duration.ofSeconds(config["metric_readoutMinutes"] as Long)
 
 
