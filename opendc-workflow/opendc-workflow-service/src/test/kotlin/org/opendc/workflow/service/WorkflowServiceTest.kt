@@ -109,7 +109,7 @@ internal class WorkflowServiceTest {
     }
 
     fun commonExperimentEnvironment(numHosts: Int, envKind : String): HashMap<String, Any> {
-        val traceName = "shell_parquet" // TODO: change to right trace name
+        val traceName = "askalon_ee2_parquet" // TODO: change to right trace name
         val traceNameConverted = traceName.replace("_", "-")
         return hashMapOf<String, Any>(
             "path_metrics" to "$basePath/${traceNameConverted}_${policyName}_${envKind}_scale${numHosts}_metrics.csv",
