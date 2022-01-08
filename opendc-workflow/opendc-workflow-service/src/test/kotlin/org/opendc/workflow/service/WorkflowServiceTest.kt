@@ -67,7 +67,7 @@ import java.util.*
 @DisplayName("WorkflowService")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 internal class WorkflowServiceTest {
-    val policyName = "MaxMin"
+    val policyName = "MaxMin-v2"
     val basePath = System.getProperty("user.home") + "/OpenDC Test Automation/${policyName}"
     val readOutInterval = 10
 
@@ -104,7 +104,7 @@ internal class WorkflowServiceTest {
     }
 
     fun commonExperimentEnvironment(numHosts: Int, envKind : String): HashMap<String, Any> {
-        val traceName = "shell_parquet" // TODO: change to right trace name
+        val traceName = "askalon_ee2_parquet" // TODO: change to right trace name
         val traceNameConverted = traceName.replace("_", "-")
         return hashMapOf<String, Any>(
             "path_metrics" to "$basePath/${traceNameConverted}_${policyName}_${envKind}_scale${numHosts}_metrics.csv",
@@ -192,7 +192,7 @@ internal class WorkflowServiceTest {
         var readoutTime = Duration.ofSeconds(config["metric_readoutMinutes"] as Long)
 
         if (config["tracePath"] == "/Galaxy"){
-            readoutTime = Duration.ofSeconds(config["metric_readoutMinutes"] as Long)
+            readoutTime = Duration.ofMinutes(config["metric_readoutMinutes"] as Long)
         }
 
 
