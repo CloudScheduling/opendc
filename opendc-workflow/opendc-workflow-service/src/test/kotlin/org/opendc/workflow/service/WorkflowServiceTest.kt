@@ -103,7 +103,7 @@ internal class WorkflowServiceTest {
     }
 
     fun commonExperimentEnvironment(numHosts: Int, envKind : String): HashMap<String, Any> {
-        val traceName = "shell_parquet" // TODO: change to right trace name
+        val traceName = "askalon_ee2_parquet" // TODO: change to right trace name
         val traceNameConverted = traceName.replace("_", "-")
         return hashMapOf<String, Any>(
             "path_metrics" to "$basePath/${traceNameConverted}_${policyName}_${envKind}_scale${numHosts}_metrics.csv",
@@ -152,7 +152,7 @@ internal class WorkflowServiceTest {
      * We observe makespan (s), energy spend (kWh) and utilization (%).
      */
     @ParameterizedTest(name = "Workload {0}")
-    @ValueSource(strings = ["shell_parquet", "Galaxy", "askalon-new_ee49_parquet", "askalon_ee2_parquet"])
+    @ValueSource(strings = ["spec_trace-1_parquet", "askalon_ee_parquet", "shell_parquet", "Galaxy", "askalon-new_ee49_parquet", "askalon_ee2_parquet"])
     @DisplayName("Experiment Workload")
     fun experimentWorkload(traceName : String) {
         val numHosts = 2 // TODO: change to right amount
