@@ -26,6 +26,7 @@ import io.opentelemetry.sdk.metrics.export.MetricProducer
 import kotlinx.coroutines.coroutineScope
 import org.junit.jupiter.api.Assertions.assertAll
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.opendc.compute.service.scheduler.AssignmentExecutionScheduler
@@ -56,6 +57,7 @@ import java.util.*
  * Integration test suite for the [WorkflowService].
  */
 @DisplayName("AntColonyPolicyTraceTest")
+@Disabled
 internal class AntColonyPolicyTraceTest {
     @Test
     fun testTrace() = runBlockingSimulation {

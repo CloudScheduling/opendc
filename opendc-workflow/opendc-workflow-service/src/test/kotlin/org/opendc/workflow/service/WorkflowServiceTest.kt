@@ -24,11 +24,8 @@ package org.opendc.workflow.service
 
 import io.opentelemetry.sdk.metrics.export.MetricProducer
 import kotlinx.coroutines.coroutineScope
+import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.BeforeAll
-import org.junit.jupiter.api.DisplayName
-import org.junit.jupiter.api.TestInstance
-import org.junit.jupiter.api.assertAll
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import org.opendc.compute.service.scheduler.AssignmentExecutionScheduler
@@ -54,7 +51,9 @@ import org.opendc.workflow.service.scheduler.task.TaskReadyEligibilityPolicy
 import org.opendc.workflow.workload.WorkflowSchedulerSpec
 import org.opendc.workflow.workload.WorkflowServiceHelper
 import org.opendc.workflow.workload.toJobs
+import java.io.BufferedWriter
 import java.io.File
+import java.io.FileWriter
 import java.io.PrintWriter
 import java.nio.file.Paths
 import java.time.Duration
@@ -67,8 +66,9 @@ import java.util.*
 @DisplayName("WorkflowService")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 internal class WorkflowServiceTest {
-    val basePath = System.getProperty("user.home") + "/OpenDC Test Automation/ACO"
-    val readOutInterval = 20
+    val policyName = "ACO"
+    val basePath = System.getProperty("user.home") + "/OpenDC Test Automation/$policyName"
+    val readOutInterval = 10
 
     @BeforeAll
     fun setup() {
@@ -76,39 +76,99 @@ internal class WorkflowServiceTest {
         val file = File(basePath).mkdirs()
     }
 
-    @ParameterizedTest(name = "{0} hosts")
+    /**
+     * We run with a fixed environment kind and workload.
+     * We vary the scale.
+     * We observe makespan (s), energy spend (kWh) and utilization (%).
+     */
+    @ParameterizedTest(name= "{0} hosts")
     @ValueSource(ints = [2, 4, 6, 8, 10, 12, 14])
-    @DisplayName("Homogeneous environment")
-    fun testHomo(numHosts : Int) {
-        val config = hashMapOf(
-            "path_metrics" to "$basePath/specTrace2_aco_homo_scale${numHosts}_metrics.csv",
-            "path_makespan" to "$basePath/specTrace2_aco_homo_scale${numHosts}_makespan.csv",
-            "path_tasksOverTime" to "$basePath/specTrace2_aco_homo_scale${numHosts}_taksOvertime.csv",
+    @DisplayName("Experiment scale")
+    fun experimentScale(numHosts : Int) {
+        val traceName = "askalon_ee2_parquet" // TODO: change to right trace name
+        val traceNameConverted = traceName.replace("_", "-")
+        val config = hashMapOf<String, Any>(
+            "path_metrics" to "$basePath/${traceNameConverted}_${policyName}_homogeneous_scale${numHosts}_metrics.csv",
+            "path_makespan" to "$basePath/${traceNameConverted}_${policyName}_homogeneous_scale${numHosts}_makespan.csv",
+            "path_tasksOverTime" to "$basePath/${traceNameConverted}_${policyName}_homogeneous_scale${numHosts}_taksOvertime.csv",
+            "path_hostInfo" to "$basePath/${traceNameConverted}_${policyName}_homogeneous_scale${numHosts}_hostInfo.csv",
+            "path_variableStore" to "$basePath/${traceNameConverted}_${policyName}_homogeneous_scale${numHosts}_variableStore.csv",
             "host_function" to listOf(Pair(numHosts, { id : Int -> createHomogenousHostSpec(id)})),
             "metric_readoutMinutes" to readOutInterval.toLong(),
-            "tracePath" to "/spec_trace-2_parquet",
+            "tracePath" to "/$traceName",
             "traceFormat" to "wtf",
-            "numberJobs" to 200.toLong(),
+            "numberJobs" to 906L, // TODO: depends on trace
         )
         testTemplate(config)
     }
 
-    @ParameterizedTest(name = "{0} hosts")
-    @ValueSource(ints = [/*2, 4, 6, 8, 10,*/ 12, 14])
-    @DisplayName("Heterogeneous environment")
-    fun testHetro(numHosts: Int) {
-        val config = hashMapOf(
-            "path_metrics" to "$basePath/askalon_ee49_aco_hetro_scale${numHosts}_metrics.csv",
-            "path_makespan" to "$basePath/askalon_ee49_aco_hetro_scale${numHosts}_makespan.csv",
-            "path_tasksOverTime" to "$basePath/askalon_ee49_aco_hetro_scale${numHosts}_taksOvertime.csv",
-            "host_function" to listOf(
-                Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec(id)}),
-                Pair(numHosts / 2, { id : Int -> createHomogenousHostSpec2(id)}),
-            ),
+    fun commonExperimentEnvironment(numHosts: Int, envKind : String): HashMap<String, Any> {
+        val traceName = "shell_parquet" // TODO: change to right trace name
+        val traceNameConverted = traceName.replace("_", "-")
+        return hashMapOf<String, Any>(
+            "path_metrics" to "$basePath/${traceNameConverted}_${policyName}_${envKind}_scale${numHosts}_metrics.csv",
+            "path_makespan" to "$basePath/${traceNameConverted}_${policyName}_${envKind}_scale${numHosts}_makespan.csv",
+            "path_tasksOverTime" to "$basePath/${traceNameConverted}_${policyName}_${envKind}_scale${numHosts}_taksOvertime.csv",
+            "path_hostInfo" to "$basePath/${traceNameConverted}_${policyName}_${envKind}_scale${numHosts}_hostInfo.csv",
+            "path_variableStore" to "$basePath/${traceNameConverted}_${policyName}_${envKind}_scale${numHosts}_variableStore.csv",
             "metric_readoutMinutes" to readOutInterval.toLong(),
-            "tracePath" to "/askalon-new_ee49_parquet",
+            "tracePath" to "/$traceName",
             "traceFormat" to "wtf",
-            "numberJobs" to 50.toLong(),
+            "numberJobs" to 3403.toLong(), // TODO: depends on trace
+        )
+    }
+
+    /**
+     * We run with a fixed scale and workload.
+     * We vary the environment kind.
+     * We observe makespan (s), energy spend (kWh) and utilization (%).
+     */
+    @Test
+    @DisplayName("Experiment Environment Homogeneous")
+    fun experimentEnvironmentHomo() {
+        val numHosts = 2 // TODO: change to right amount
+        val config = commonExperimentEnvironment(numHosts, "homogeneous")
+        config["host_function"] = listOf(Pair(numHosts, { id : Int -> createHomogenousHostSpec(id)}))
+        testTemplate(config)
+    }
+
+    /**
+     * We run with a fixed scale and workload.
+     * We vary the environment kind.
+     * We observe makespan (s), energy spend (kWh) and utilization (%).
+     */
+    @Test
+    @DisplayName("Experiment Environment Heterogeneous")
+    fun experimentEnvironmentHetero() {
+        val numHosts = 2 // TODO: change to right amount
+        val config = commonExperimentEnvironment(numHosts, "heterogeneous")
+        config["host_function"] = listOf(Pair(numHosts, { id : Int -> createHomogenousHostSpec2(id)}))
+        testTemplate(config)
+    }
+
+    /**
+     * We run with a fixed scale and environment kind.
+     * We vary the workload.
+     * We observe makespan (s), energy spend (kWh) and utilization (%).
+     */
+    @ParameterizedTest(name = "Workload {0}")
+    @ValueSource(strings = ["shell_parquet", "Galaxy", "askalon-new_ee49_parquet", "askalon_ee2_parquet"])
+    @DisplayName("Experiment Workload")
+    fun experimentWorkload(traceName : String) {
+        val numHosts = 2 // TODO: change to right amount
+        val envKind = "homogeneous" // TODO: change if it shall be heterogeneous
+        val traceNameConverted = traceName.replace("_", "-")
+        val config = hashMapOf<String, Any>(
+            "path_metrics" to "$basePath/${traceNameConverted}_${policyName}_${envKind}_scale${numHosts}_metrics.csv",
+            "path_makespan" to "$basePath/${traceNameConverted}_${policyName}_${envKind}_scale${numHosts}_makespan.csv",
+            "path_tasksOverTime" to "$basePath/${traceNameConverted}_${policyName}_${envKind}_scale${numHosts}_taksOvertime.csv",
+            "path_hostInfo" to "$basePath/${traceNameConverted}_${policyName}_${envKind}_scale${numHosts}_hostInfo.csv",
+            "path_variableStore" to "$basePath/${traceNameConverted}_${policyName}_${envKind}_scale${numHosts}_variableStore.csv",
+            "host_function" to listOf(Pair(numHosts, { id : Int -> createHomogenousHostSpec(id)})), // TODO: change, if env changed
+            "metric_readoutMinutes" to readOutInterval.toLong(),
+            "tracePath" to "/$traceName",
+            "traceFormat" to "wtf",
+            "numberJobs" to 200.toLong(), // TODO: depends on trace
         )
         testTemplate(config)
     }
@@ -129,13 +189,24 @@ internal class WorkflowServiceTest {
         val computeScheduler = AssignmentExecutionScheduler()
         val computeHelper = ComputeServiceHelper(coroutineContext, clock, computeScheduler, schedulingQuantum = Duration.ofSeconds(1))
 
-        val metricsFile = PrintWriter(config["path_metrics"] as String)
-        val makespanFile =  PrintWriter(config["path_makespan"] as String)
-        val tasksOverTimeFile = PrintWriter(config["path_tasksOverTime"] as String)
+        val metricsFile = BufferedWriter(FileWriter(config["path_metrics"] as String), 32768)
+        val makespanFile = BufferedWriter(FileWriter(config["path_makespan"] as String), 32768)
+        val tasksOverTimeFile = BufferedWriter(FileWriter(config["path_tasksOverTime"] as String), 32768)
+        val variableStoreFile = BufferedWriter(FileWriter(config["path_variableStore"] as String), 32768)
 
-        metricsFile.appendLine("No# Tasks running,cpuUsage(CPU usage of all CPUs of the host in MHz),energyUsage(Power usage of the host in W)")
+        metricsFile.appendLine("Timestamp(s),HostId,No# Tasks running,cpuUsage(CPU usage of all CPUs of the host in MHz),energyUsage(Power usage of the host in W)")
         makespanFile.appendLine("Makespan (s),Workflow Response time (s)")
         tasksOverTimeFile.appendLine("Time (s),Tasks #")
+        variableStoreFile.appendLine("variable,value,unit")
+        variableStoreFile.appendLine("readOutInterval,${readOutInterval},m")
+
+        val hostInfoFile = BufferedWriter(FileWriter(config["path_hostInfo"] as String), 32768)
+        hostInfoFile.appendLine("HostNo,maxCapacity(MHz)")
+        for (host in computeHelper.hosts) {
+            var maxCapacity = host.machine.cpus.sumOf { it.capacity }
+            hostInfoFile.appendLine("${host.uid},${maxCapacity}")
+        }
+        hostInfoFile.close()
 
         val hostFns = config["host_function"] as List<Pair<Int, (Int) -> HostSpec>>
         var offSet = 0
@@ -161,18 +232,25 @@ internal class WorkflowServiceTest {
             taskOrderPolicy = AntColonyPolicy(hostSpecs.toList(), acoConstants)
         )
         val workflowHelper = WorkflowServiceHelper(coroutineContext, clock, computeHelper.service.newClient(), workflowScheduler)
+
+        val readoutTime =  if (config["tracePath"] == "/Galaxy")
+            Duration.ofMinutes(config["metric_readoutMinutes"] as Long)
+            else Duration.ofSeconds(config["metric_readoutMinutes"] as Long)
+
         val metricReader = CoroutineMetricReader(this, computeHelper.producers, object : ComputeMetricExporter(){
             var energyUsage = 0.0
             var cpuUsage = 0.0
             //Makespan
 
             override fun record(reader: HostTableReader){
+                var host = reader.host.id
+                var timeStamp = reader.timestamp.getEpochSecond()
                 cpuUsage = reader.cpuUsage
                 energyUsage = reader.powerTotal
-                metricsFile.appendLine("${reader.guestsRunning},$cpuUsage,${energyUsage.toInt()}")
+                metricsFile.appendLine("${timeStamp},${host},${reader.guestsRunning},$cpuUsage,${energyUsage.toInt()}")
 
             }
-        }, exportInterval = Duration.ofMinutes(config["metric_readoutMinutes"] as Long))
+        }, exportInterval = readoutTime)
 
         try {
             val trace = Trace.open(
@@ -181,17 +259,21 @@ internal class WorkflowServiceTest {
             )
 
             coroutineScope {
+                // Some jobs in ee2 trace are submitted very late and OpenDC would wait 37 years before executing them
+                val jobs = if (config["tracePath"] == "/askalon_ee2_parquet")
+                    trace.toJobs().sortedBy { it.metadata.getOrDefault("WORKFLOW_SUBMIT_TIME", Long.MAX_VALUE) as Long }.subList(0, 906)
+                    else trace.toJobs()
 
-                val jobs = trace.toJobs()
                 workflowHelper.replay(jobs) // Wait for all jobs to be executed completely
+
                 val makespans = jobs.map { (it.tasks.maxOf { t -> t.metadata["finishedAt"] as Long } - it.tasks.minOf {t -> t.metadata["startedAt"] as Long }) / 1000}
 
                 val workflowWaitTime = jobs.map { (it.tasks.minOf {t -> t.metadata["startedAt"] as Long } - it.metadata["submittedAt"] as Long) / 1000}
                 val completedTasksOverTime : MutableList<Double> = mutableListOf()
 
-                for(job in jobs){
-                    for(task in job.tasks){
-                        val result = when((task.metadata["finishedAt"] as Long - task.metadata["startedAt"]  as Long) < 1000){
+                for (job in jobs) {
+                    for (task in job.tasks) {
+                        val result = when ((task.metadata["finishedAt"] as Long - task.metadata["startedAt"]  as Long) < 1000) {
                             false -> (task.metadata["finishedAt"] as Long - task.metadata["startedAt"]  as Long) / 1000
                             true -> (task.metadata["finishedAt"] as Long - task.metadata["startedAt"]  as Long) / 1000.0
                         }
@@ -202,13 +284,16 @@ internal class WorkflowServiceTest {
                 }
                 val workflowResponseTime = (workflowWaitTime.indices).map { workflowWaitTime[it] + makespans[it] }
 
-                (workflowWaitTime.indices).map{
+                (workflowWaitTime.indices).map {
                     makespanFile.appendLine("${makespans[it]},${kotlin.math.round(workflowResponseTime[it].toDouble())}")
-
                 }
-                for ((key, value) in completedTasksOverTime.groupingBy { it }.eachCount().filter { it.value >= 1 }.entries){
+                for ((key, value) in completedTasksOverTime.groupingBy { it }.eachCount().filter { it.value >= 1 }.entries) {
                     tasksOverTimeFile.appendLine("$key,$value")
                 }
+
+                // how long did we run in total?
+                val milliSecToSec = 1000
+                variableStoreFile.appendLine("totalRuntime,${clock.millis() / milliSecToSec},s")
             }
         } finally {
             workflowHelper.close()
@@ -217,6 +302,7 @@ internal class WorkflowServiceTest {
             metricsFile.close()
             makespanFile.close()
             tasksOverTimeFile.close()
+            variableStoreFile.close()
         }
         val path = System.getProperty("user.dir")
 

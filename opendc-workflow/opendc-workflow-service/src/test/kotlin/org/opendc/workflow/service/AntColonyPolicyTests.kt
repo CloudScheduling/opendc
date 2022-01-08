@@ -1,6 +1,7 @@
 package org.opendc.workflow.service
 
 import org.junit.jupiter.api.Assertions
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import org.opendc.compute.workload.topology.HostSpec
 import org.opendc.simulator.compute.kernel.SimSpaceSharedHypervisorProvider
@@ -23,6 +24,7 @@ import kotlin.coroutines.CoroutineContext
 
 class AntColonyPolicyTests {
     @Test
+    @Disabled
     fun example() = runBlockingSimulation {
         val hostSpecs = listOf(createDefaultHostSpec(1))
 
