@@ -28,15 +28,9 @@ import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
-import org.opendc.compute.service.scheduler.FilterScheduler
 import org.opendc.compute.service.scheduler.RandomScheduler
-import org.opendc.compute.service.scheduler.filters.ComputeFilter
-import org.opendc.compute.service.scheduler.filters.RamFilter
-import org.opendc.compute.service.scheduler.filters.VCpuFilter
-import org.opendc.compute.service.scheduler.weights.VCpuWeigher
 import org.opendc.compute.workload.ComputeServiceHelper
 import org.opendc.compute.workload.topology.HostSpec
-import org.opendc.compute.workload.trace
 import org.opendc.simulator.compute.kernel.SimSpaceSharedHypervisorProvider
 import org.opendc.simulator.compute.model.MachineModel
 import org.opendc.simulator.compute.model.MemoryUnit
@@ -50,10 +44,8 @@ import org.opendc.telemetry.compute.table.HostTableReader
 import org.opendc.telemetry.sdk.metrics.export.CoroutineMetricReader
 import org.opendc.trace.Trace
 import org.opendc.workflow.api.Job
-import org.opendc.workflow.service.scheduler.job.ExecutionTimeJobOrderPolicy
 import org.opendc.workflow.service.scheduler.job.NullJobAdmissionPolicy
 import org.opendc.workflow.service.scheduler.job.RandomJobOrderPolicy
-import org.opendc.workflow.service.scheduler.task.ExecutionTimeTaskOderPolicy
 import org.opendc.workflow.service.scheduler.task.NullTaskEligibilityPolicy
 import org.opendc.workflow.service.scheduler.task.RandomTaskOrderPolicy
 import org.opendc.workflow.workload.WorkflowSchedulerSpec
@@ -65,7 +57,6 @@ import java.io.FileWriter
 import java.nio.file.Paths
 import java.time.Duration
 import java.util.*
-import java.io.PrintWriter
 import kotlin.collections.HashMap
 
 /**
@@ -197,8 +188,8 @@ internal class WorkflowServiceTest {
     fun testTemplate(config : HashMap<String, Any>) = runBlockingSimulation {
         // Configure the ComputeService that is responsible for mapping virtual machines onto physical hosts
 
-        val randomScheduler = RandomScheduler()
-        val computeHelper = ComputeServiceHelper(coroutineContext, clock, randomScheduler, schedulingQuantum = Duration.ofSeconds(1))
+        val computeScheduler = RandomScheduler()
+        val computeHelper = ComputeServiceHelper(coroutineContext, clock, computeScheduler, schedulingQuantum = Duration.ofSeconds(1))
         var readoutTime = Duration.ofSeconds(config["metric_readoutMinutes"] as Long)
 
 
