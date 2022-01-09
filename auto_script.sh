@@ -91,6 +91,21 @@ gradle -q :opendc-workflow:opendc-workflow-service:test
 echo "The respective CSVs have been generated and placed in the Random directory!"
 cd ../..
 echo "Returned to the base-path"
+echo "----------------------------------------------"
+echo "-------------------ACO--------------------"
+# Taking Florian's policy (ACO) next, and trying to generate the build using Gradle
+mkdir "ACO"
+echo "Generated a separate directory ACO -> ACO policy"
+cd "ACO" # cd "$basepath" to go to the starting location
+echo "Cloning ACO policy from the respective branch of OpenDC repository into this new directory"
+git clone -b ant-colony --single-branch https://github.com/CloudScheduling/opendc.git
+cd opendc
+echo "Performing gradle build to execute the tests - ACO policy"
+gradle -q :opendc-workflow:opendc-workflow-service:test
+echo "The respective CSVs have been generated and placed in the ACO directory!"
+cd ../..
+echo "Returned to the base-path"
+echo "----------------------------------------------"
 echo "----------------------End of the script-----------------------"
 end=$(date +"%s")
 runtime=$(($end-$begin))
