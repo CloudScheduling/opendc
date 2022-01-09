@@ -221,6 +221,7 @@ internal class WorkflowServiceTest {
         }
         hostInfoFile.close()
 
+        // Parameters were first taken from the Tawfeek et al. paper and later adjusted using trial-and-error
         val acoConstants = Constants(numIterations = 10, numAnts = 42, alpha = 1.0, beta = 3.0, gamma = 1.0,
             initialPheromone = 5.0, rho = 0.1)
         // Configure the WorkflowService that is responsible for scheduling the workflow tasks onto machines

@@ -10,6 +10,8 @@ import kotlin.random.Random
 
 internal class Core(val id: Int, val host: HostSpec, val frequency: Double) {
     private val execTimes: MutableMap<TaskState, Double> = mutableMapOf()
+
+    // The sum of execution times of already scheduled tasks
     private var _committedTime: Double = 0.0
     val committedTime: Double
         get() { return _committedTime }
@@ -23,7 +25,7 @@ internal class Core(val id: Int, val host: HostSpec, val frequency: Double) {
     }
 
     /**
-     * Clear previous information and precompute execution times for tasks
+     * Clear previous information and precompute execution times for batch of tasks
      */
     fun precomputeExecTimes(tasks: List<TaskState>) {
         this.execTimes.clear()
@@ -50,6 +52,8 @@ internal class Tour() {
 }
 
 internal class Ant {
+    // The sum of execution times per core for scheduled tasks
+    // that are part of the current tour
     private var _coresActiveTime = mutableMapOf<Core, Double>()
     val coresActiveTime: Map<Core, Double>
         get() { return _coresActiveTime }
@@ -73,6 +77,12 @@ internal class Ant {
     }
 }
 
+// alpha and beta determine weight of trail level and task execution time
+// when calculating attractiveness.
+// gamma is constant I introduced to set minimum attractiveness. When >0,
+// every path is considered with a certain probability >0, even if trail level
+// and execution time suggest otherwise.
+// rho determines the evaporation of pheromone
 public data class Constants(val numIterations: Int,
                             val numAnts: Int,
                             val alpha: Double,
@@ -89,6 +99,11 @@ public class AntColonyPolicy(private val hosts: List<HostSpec>, private val cons
         if (tasks.isEmpty())
             return _emptyQueue
 
+        // Tasks are split into chunks of 1000 because if there are a lot of possible ProcessingUnits and a lot of tasks, an
+        // OutOfMemoryException is thrown when trying to allocate the collections that hold the precalculated execution times
+        // and trail levels, respectively.
+        // This is also similar to the algorithm of Tawfeek et al., but with the chunkSize being equal to the number of
+        // processing units.
         val chunkSize = 1000
         for (chunk in tasks.chunked(chunkSize)) {
             val goodTour = acoProc(chunk, _cores)
@@ -162,6 +177,7 @@ public class AntColonyPolicy(private val hosts: List<HostSpec>, private val cons
         return trails
     }
 
+    // Ant walks along a tour that includes every task
     private fun antWalk(ant: Ant, tasks: List<TaskState>, cores: List<Core>, trails: Map<Pair<TaskState, Core>, Double>) {
         ant.reset()
 
@@ -172,6 +188,7 @@ public class AntColonyPolicy(private val hosts: List<HostSpec>, private val cons
     }
 
     private fun selectCore(ant: Ant, task: TaskState, cores: List<Core>, trails: Map<Pair<TaskState, Core>, Double>): Core {
+        // Selects a core with certain probability. To calculate the probability, all attractivenesses have to be calculated first.
         val attractivenesses = mutableListOf<Double>()
         var attractivenessSum = 0.0
         for (i in cores.indices) {
@@ -196,6 +213,11 @@ public class AntColonyPolicy(private val hosts: List<HostSpec>, private val cons
     }
 
     private fun calculateAttractiveness(trailLevel: Double, completionTime: Double): Double {
+        // Tawfeek et al. use 1.0/execTime as metric. But this would not consider the utilization of
+        // cores (their availability times, to be specific), hence I use the completionTime here.
+        // If the completionTime is very large, the metric becomes insignificant. Therefore, I take
+        // the logarithm to flatten the curve.
+        // The rest of this formula is there to get nicer values that make sense for many different traces.
         val desirability = 100.0 / maxOf(1.0, log10(completionTime)).pow(constants.beta)
         return trailLevel.pow(constants.alpha) * desirability.pow(constants.beta) + constants.gamma
     }
