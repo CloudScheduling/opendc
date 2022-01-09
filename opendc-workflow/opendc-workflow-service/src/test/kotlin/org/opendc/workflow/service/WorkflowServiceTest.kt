@@ -200,14 +200,6 @@ internal class WorkflowServiceTest {
         variableStoreFile.appendLine("variable,value,unit")
         variableStoreFile.appendLine("readOutInterval,${readOutInterval},m")
 
-        val hostInfoFile = BufferedWriter(FileWriter(config["path_hostInfo"] as String), 32768)
-        hostInfoFile.appendLine("HostNo,maxCapacity(MHz)")
-        for (host in computeHelper.hosts) {
-            var maxCapacity = host.machine.cpus.sumOf { it.capacity }
-            hostInfoFile.appendLine("${host.uid},${maxCapacity}")
-        }
-        hostInfoFile.close()
-
         val hostFns = config["host_function"] as List<Pair<Int, (Int) -> HostSpec>>
         var offSet = 0
         val hostSpecs = HashSet<HostSpec>()
@@ -220,6 +212,14 @@ internal class WorkflowServiceTest {
         for (elem in hostSpecs) {
             computeHelper.registerHost(elem)
         }
+
+        val hostInfoFile = BufferedWriter(FileWriter(config["path_hostInfo"] as String), 32768)
+        hostInfoFile.appendLine("HostNo,maxCapacity(MHz)")
+        for (host in computeHelper.hosts) {
+            var maxCapacity = host.machine.cpus.sumOf { it.capacity }
+            hostInfoFile.appendLine("${host.uid},${maxCapacity}")
+        }
+        hostInfoFile.close()
 
         val acoConstants = Constants(numIterations = 10, numAnts = 42, alpha = 1.0, beta = 3.0, gamma = 1.0,
             initialPheromone = 5.0, rho = 0.1)
